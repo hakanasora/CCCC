@@ -1,5 +1,5 @@
-<p>
-  <img src="assets/CCCC.svg" alt="CCCC 图标" width="96" height="96">
+<p align="center">
+  <img src="assets/CCCC.svg" alt="CCCC 图标" width="128" height="128">
 </p>
 
 # CCCC
