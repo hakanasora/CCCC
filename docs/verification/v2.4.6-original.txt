@@ -1,0 +1,43 @@
+CCCC 2.4.6 最小检查记录
+2026-10-20
+
+以 2.4.5 为基础，正式程序编译成功；仅执行 build.ps1 -SkipTests -CheckAnimation。
+本轮通过 28 条断言：
+· 可控时间下验证 200 ms 淡入／220 ms 淡出的 smoothstep 中间值、端点、单调有界、当前透明度反转及剩余时长。
+· 核对重复复制仍使用 1.06／1.18 峰值、55／155 ms 放大与缩回。
+· 在内容完全透明的提示窗口中检查：隐藏后第一次复制只有淡入、标题已提前准备、第二遍实际放大、第三遍继续触发、结束停止回调。
+· 检查隐藏后带有未重置次数的重新出现也不弹跳；快速第二次按键可触发，隐藏会清除待执行的弹跳；启动状态上首次按键不弹跳；渐出中再次复制平滑恢复且不跳透明度。
+字体二进制文件与 2.4.5 一致。本轮没有更改文字采样、字形留边或计数布局，也没有重新运行旧版的文字／材质／内存检查；不把旧版检查统计当作本轮结果。
+没有读取真实剪贴板、修改用户配置或自启动，没有启动常驻监听或制作截图。录像只用于内部观察，未将录像或帧图加入交付。
+实际显示节奏与主观舒适度仍由用户确认；没有物理屏幕掉帧率或内存下降承诺。
+
+本轮原始检查结果：
+PASS,fadeIn200SmoothstepQuarter
+PASS,fadeInMidpoint
+PASS,fadeInSoftFinish
+PASS,fadeInFinishesAt200
+PASS,fadeOut220SmoothstepQuarter
+PASS,fadeOutMidpoint
+PASS,fadeOutFinishesAt220
+PASS,reversalPreservesCurrentOpacity
+PASS,reversalSmoothstepRemainingRange
+PASS,reversalScalesRemainingDuration
+PASS,fadeInMonotoneBounded
+PASS,fadeOutMonotoneBounded
+PASS,repeatPulsePeaksAndTimingUnchanged
+PASS,repeatPulseFinishesAt210
+PASS,hiddenFirstCopyQueuesFadeOnly
+PASS,firstTitlePreparedBeforeFade
+PASS,firstFrameHasFadeWithoutScale
+PASS,firstFadeStopsCallbacks
+PASS,secondKeyQueuesPulseAndPreparesCount
+PASS,secondKeyStartsPulse
+PASS,secondKeyActuallyEnlargesCard
+PASS,thirdKeyKeepsRepeatPulse
+PASS,repeatSettlesAndStopsCallbacks
+PASS,hiddenReappearanceFadeOnlyEvenWhenCountCarries
+PASS,secondKeyBeforeFirstFrameMayPulse
+PASS,hideCancelsQueuedRepeat
+PASS,firstKeyOverStatusDoesNotPulse
+PASS,repeatDuringFadeOutRestoresWithoutJump
+TOTAL,28

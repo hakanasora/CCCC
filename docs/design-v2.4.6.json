@@ -1,0 +1,236 @@
+{
+  "version": "2.4.6",
+  "themeMode": "follow-windows-apps",
+  "font": {
+    "family": "vivo Sans",
+    "variant": "Brand Chinese",
+    "title": {
+      "sizeDip": 14,
+      "weight": 650,
+      "file": "vivoSans-Bold.ttf"
+    },
+    "detail": {
+      "sizeDip": 12,
+      "weight": 500,
+      "file": "vivoSans-Medium.ttf"
+    },
+    "tray": {
+      "family": "Windows system menu font",
+      "size": "system managed",
+      "weight": "system managed"
+    },
+    "statusSymbol": {
+      "sizeDip": 19,
+      "weight": 650,
+      "file": "vivoSans-Bold.ttf"
+    },
+    "counter": {
+      "family": "Bahnschrift, Segoe UI",
+      "sizeDip": 12,
+      "weight": "SemiBold",
+      "plusSizeDip": 8
+    },
+    "formatting": "Ideal glyph drawing; Display title/detail layout; Ideal counter measurement",
+    "rendering": "Grayscale",
+    "hinting": "Fixed",
+    "embedded": true,
+    "fontFiles": [
+      "vivoSans-Medium.ttf",
+      "vivoSans-Bold.ttf"
+    ],
+    "fontBytes": 15533728,
+    "fontModification": "none",
+    "subsetting": false,
+    "installation": "none",
+    "temporaryFontFiles": false,
+    "trayBackend": "native Windows HMENU via .NET Framework ContextMenu; no private menu font registration",
+    "systemManagedUI": "tray context menu, notification-area tooltip, balloon tips and system message boxes",
+    "sampling": {
+      "scalePerAxis": 4,
+      "format": "Pbgra32",
+      "staticFilter": "4x4 box average of premultiplied channels",
+      "motion": "reuse 4x source with WPF HighQuality image scaling",
+      "static": "final physical pixels with NearestNeighbor; no intentional rescaling",
+      "cache": "per-toast shared pixel workspace; reusable per-control high/final surfaces; empty drawing and erased pixels when hidden",
+      "nativeTrayMenu": "unchanged, system rendered",
+      "newRuntimeDependencies": false
+    },
+    "counterWidthFix": "untrimmed glyphs are unconstrained single-line; no rounded-width wrapping or tight explicit clipping; 4x retained",
+    "verticalInkBounds": "expand sampled image and vertical clip to real glyph outlines plus physical safety padding; preserve layout and baseline"
+  },
+  "animation": {
+    "cardPeak": 1.06,
+    "counterTotalPeak": 1.18,
+    "growMs": 55,
+    "returnMs": 155,
+    "growCurve": "easeOutCubic",
+    "returnCurve": {
+      "type": "smoothMonotonePower",
+      "power": 2.8
+    },
+    "overshoot": false,
+    "enabled": true
+  },
+  "materials": {
+    "light": {
+      "color": "#FFFFFF",
+      "overlayOpacity": 0.8,
+      "text": "#1D1D1F",
+      "detail": "#6E6E73",
+      "counter": "#E9E9ED",
+      "countText": "#1D1D1F",
+      "rim": "#C7C7CC",
+      "extraNoiseOpacity": 0.012
+    },
+    "dark": {
+      "color": "#28282B",
+      "overlayOpacity": 0.77,
+      "text": "#F5F5F7",
+      "detail": "#AEAEB2",
+      "counter": "#3A3A3C",
+      "countText": "#F5F5F7",
+      "rim": "#636366",
+      "extraNoiseOpacity": 0.012
+    }
+  },
+  "implementation": {
+    "backend": "Windows.UI.Composition host backdrop + native Gaussian effect + WPF tint/noise/text",
+    "continuousCornerExtentDip": 26,
+    "blurStandardDeviationDip": 6,
+    "nativeStockDesktopAcrylic": false,
+    "materialWindow": "native HWND without WPF target or GDI background brush",
+    "materialOrdering": "text HWND is an owned window permanently above material owner",
+    "positioning": "no z-order changes; skip unchanged bounds; idempotent show/hide"
+  },
+  "copyFeedback": {
+    "showPendingState": false,
+    "visibleCard": "first keyboard copy has no new pulse; repeat count >= 2 pulses visible copy feedback",
+    "hiddenCard": "actual result with fade only; no pulse even if burst count carries over",
+    "titleResponse": "prepare immediately at key event; select success text only after confirmed result",
+    "rapidSecondKeyBeforeFirstFrame": "second key may queue a pulse; initial key alone never queues one"
+  },
+  "titleTransition": {
+    "outMs": 20,
+    "inMs": 45,
+    "curve": "smoothstep",
+    "overlap": false,
+    "sameTargetReplays": false,
+    "rapidUpdates": "latest target only",
+    "firstAppearance": "immediate title",
+    "hide": "reset opacity and stop",
+    "copySignal": "start at keyboard dispatch before clipboard result",
+    "slowSource": "fade the last verified title back in; never show premature success"
+  },
+  "checkIcon": {
+    "type": "frozen vector path",
+    "path": "M3,9 L7,13 L15,5",
+    "sizeDip": [
+      18,
+      18
+    ],
+    "strokeDip": 2,
+    "lineCaps": "Round",
+    "lineJoin": "Round"
+  },
+  "startup": {
+    "default": "off",
+    "scope": "current Windows user",
+    "trigger": "logon",
+    "backend": "HKCU Run value CCCC",
+    "registration": "quoted current executable path",
+    "changesOnlyOnUserToggle": true,
+    "settingsSource": "actual Run value",
+    "menuRefresh": "on opening"
+  },
+  "paletteSource": "CCCC adaptation approved by user; not an official Apple notification RGB specification",
+  "shadow": {
+    "color": "#000000",
+    "opacity": 0.15,
+    "sigmaDip": 3,
+    "geometryAndOffset": "unchanged"
+  },
+  "statusIcons": {
+    "successVariant": "swap the original 2.3.2 background and symbol colors within each theme",
+    "light": {
+      "background": "#15976B",
+      "foreground": "#DDF6EB"
+    },
+    "dark": {
+      "background": "#86DDBA",
+      "foreground": "#244A3B"
+    },
+    "colorSource": "original CCCC 2.3.2 palette, swapped literally; no new colors",
+    "badgeSizeDip": 32,
+    "checkPath": "M3,9 L7,13 L15,5",
+    "checkStrokeDip": 2,
+    "warningAndNeutral": "unchanged from 2.3.2"
+  },
+  "validationThisRelease": {
+    "focusedAssertions": 28,
+    "command": "build.ps1 -SkipTests -CheckAnimation",
+    "largeRegression": false,
+    "memoryOrPerformanceMatrix": false,
+    "screenshots": false,
+    "physicalScreenAcceptance": "pending user observation"
+  },
+  "trayMenu": {
+    "backend": "WinForms ContextMenu and MenuItem wrapping native HMENU; OwnerDraw=false",
+    "renderer": "Windows User32/UxTheme, no custom drawing",
+    "theme": "follow Windows app light/dark preference",
+    "darkAdaptation": "optional process-local uxtheme exports 135/136; minimum build 18362; system native appearance fallback when unavailable",
+    "highContrast": "defer to system",
+    "checkedItems": {
+      "pause": "checked when paused",
+      "preview": "checked when preview is enabled",
+      "startup": "checked from actual current-user Run registration",
+      "material": "checked when user allows material; system policy can still disable it"
+    },
+    "pauseLabel": "暂停提示",
+    "popupRefresh": "pause, preview, startup, material preference and theme",
+    "startupOtherLocation": "keeps checked state and adds a label suffix",
+    "startupReadFailure": "disabled item with read-failure suffix"
+  },
+  "baseline": "2.4.5",
+  "memoryOptimizationRound1": {
+    "idleSharedArrayBudgetBytes": 2097152,
+    "idleKnownTextPixelBudgetBytes": 4194304,
+    "budgetScope": "known raw text pixel buffers/surfaces only, not process or GPU memory",
+    "samplingPerAxis": 4,
+    "eraseIdlePixels": true,
+    "reuseEqualSizeSurfaces": true,
+    "explicitHiddenDrawingClear": true,
+    "disposeReplacedCompositionGeometry": true,
+    "forceGcOrWorkingSetTrim": false,
+    "fontsUnchanged": true,
+    "inheritedFromVersion": "2.4.3"
+  },
+  "materialPreference": {
+    "label": "高级材质",
+    "default": true,
+    "storage": "LocalAppData/CCCC/settings.txt",
+    "key": "material=on/off",
+    "disabledBackground": {
+      "light": "#FFFFFF",
+      "dark": "#28282B",
+      "opacity": 1,
+      "grain": false
+    },
+    "disableAction": "detach owner; dispose native material window, compositor, target, effects and geometry",
+    "dispatcherInfrastructure": "retained for thread lifetime",
+    "systemPolicyRespected": true,
+    "creationFailure": "plain background fallback",
+    "startupOffCreatesHost": false
+  },
+  "presentationPreparation": {
+    "textSamplingUnchanged": true,
+    "prepareBeforeAnimationClock": true,
+    "startEpoch": "first rendering callback after layout, background, visible glyphs and material positioning are ready",
+    "pendingUpdates": "latest current content only; hide/close cancel pending flags",
+    "windowFadeInMs": 200,
+    "windowFadeOutMs": 220,
+    "fadeOutInterruptedByCopy": "resume from current opacity with smoothstep over 200 * (1-opacity) ms",
+    "wholeCardBitmapCapture": false,
+    "idleRelease244": false,
+    "windowFadeCurve": "smoothstep t*t*(3-2*t)"
+  }
+}

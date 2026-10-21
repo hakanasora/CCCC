@@ -399,3 +399,19 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# CCCC local build inputs and outputs
+/artifacts/
+/outputs/
+/work/
+/assets/fonts/*
+!/assets/fonts/README.md
+/settings.txt
+*.g.resources
+*.exe
+*.zip
+# Recordings are local unless explicitly curated as product media
+*.mp4
+*.mov
+*.webm
+!/docs/media/*.mp4
