@@ -1,3 +1,7 @@
+<p>
+  <img src="assets/CCCC.svg" alt="CCCC 图标" width="96" height="96">
+</p>
+
 # CCCC
 
 一款 Windows 复制反馈工具。
