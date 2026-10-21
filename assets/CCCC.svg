@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254" fill="none" role="img" aria-labelledby="icon-title icon-desc">
+  <title id="icon-title">CCCC — copy confirmation</title>
+  <desc id="icon-desc">Two pale overlapping sheets and an emerald check on a green enamel plate, set into a softly bevelled charcoal tile. Editable vector artwork with no embedded images, fonts, or external resources.</desc>
+  <defs>
+    <path id="tile" d="M320 92H934C1083 92 1167 176 1167 325V924C1167 1073 1083 1157 934 1157H320C171 1157 86 1073 86 924V325C86 176 171 92 320 92Z"/>
+    <rect id="front-sheet" x="500" y="444" width="365" height="449" rx="57"/>
+    <path id="check" d="M574 669L648 741L790 584"/>
+
+    <!-- A shared visual language with ApoSwitch: a charcoal tile, enamel,
+         soft upper-left lighting, a bright rim, and raised ivory geometry. -->
+    <linearGradient id="tile-fill" x1="627" y1="92" x2="627" y2="1157" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#46494F"/>
+      <stop offset=".08" stop-color="#383B41"/>
+      <stop offset=".36" stop-color="#2C2E33"/>
+      <stop offset=".70" stop-color="#1E2024"/>
+      <stop offset="1" stop-color="#17181B"/>
+    </linearGradient>
+    <radialGradient id="tile-light" cx="184" cy="327" r="835" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DCE3ED" stop-opacity=".14"/>
+      <stop offset=".48" stop-color="#B8C1CE" stop-opacity=".05"/>
+      <stop offset="1" stop-color="#B8C1CE" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="tile-shade" x1="680" y1="600" x2="1167" y2="600" gradientUnits="userSpaceOnUse">
+      <stop stop-opacity="0"/>
+      <stop offset="1" stop-opacity=".34"/>
+    </linearGradient>
+    <linearGradient id="tile-edge" x1="254" y1="92" x2="1017" y2="1142" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8EAEE" stop-opacity=".88"/>
+      <stop offset=".20" stop-color="#BEC1C9" stop-opacity=".46"/>
+      <stop offset=".48" stop-color="#666A73" stop-opacity=".12"/>
+      <stop offset=".72" stop-color="#26292F" stop-opacity=".56"/>
+      <stop offset="1" stop-color="#090A0C" stop-opacity=".85"/>
+    </linearGradient>
+    <linearGradient id="tile-bevel" x1="194" y1="91" x2="817" y2="949" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F2F6FD" stop-opacity=".80"/>
+      <stop offset=".30" stop-color="#DEE5EF" stop-opacity=".29"/>
+      <stop offset=".65" stop-color="#DEE5EF" stop-opacity=".03"/>
+      <stop offset="1" stop-color="#DEE5EF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="tile-inner-edge" x1="627" y1="98" x2="627" y2="1151" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BFC3CA" stop-opacity=".42"/>
+      <stop offset=".15" stop-color="#A3A7AE" stop-opacity=".12"/>
+      <stop offset=".60" stop-color="#272A30" stop-opacity=".10"/>
+      <stop offset="1" stop-color="#656871" stop-opacity=".13"/>
+    </linearGradient>
+    <radialGradient id="contact-shade" cx="661" cy="866" r="552" gradientTransform="translate(661 866) scale(1 .63) translate(-661 -866)" gradientUnits="userSpaceOnUse">
+      <stop stop-opacity=".53"/>
+      <stop offset=".69" stop-opacity=".28"/>
+      <stop offset="1" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="plate-bevel" cx="624.5" cy="615.5" r="438.5" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#176E58"/>
+      <stop offset=".964" stop-color="#176E58"/>
+      <stop offset=".972" stop-color="#25886C"/>
+      <stop offset=".982" stop-color="#4AAC8C"/>
+      <stop offset=".989" stop-color="#A1E3C9"/>
+      <stop offset="1" stop-color="#E3FFF3"/>
+    </radialGradient>
+    <linearGradient id="plate-edge" x1="351" y1="222" x2="891" y2="1019" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E5FFF4"/>
+      <stop offset=".27" stop-color="#91D9BE"/>
+      <stop offset=".62" stop-color="#175741"/>
+      <stop offset="1" stop-color="#65AF91"/>
+    </linearGradient>
+    <linearGradient id="plate-shade" x1="277" y1="181" x2="949" y2="1050" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#083E30" stop-opacity="0"/>
+      <stop offset=".30" stop-color="#083E30" stop-opacity=".10"/>
+      <stop offset=".65" stop-color="#062B21" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#062B21" stop-opacity=".68"/>
+    </linearGradient>
+    <linearGradient id="enamel" x1="624.5" y1="190" x2="624.5" y2="1040" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#368E72"/>
+      <stop offset=".09" stop-color="#2B8266"/>
+      <stop offset=".23" stop-color="#206F56"/>
+      <stop offset=".49" stop-color="#155640"/>
+      <stop offset=".76" stop-color="#104632"/>
+      <stop offset="1" stop-color="#0B3728"/>
+    </linearGradient>
+    <radialGradient id="enamel-light" cx="388" cy="365" r="601" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BCFFE1" stop-opacity=".10"/>
+      <stop offset=".52" stop-color="#8EDCB9" stop-opacity=".04"/>
+      <stop offset="1" stop-color="#8EDCB9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="enamel-edge" x1="339" y1="238" x2="917" y2="994" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1F694F"/>
+      <stop offset=".44" stop-color="#154A36"/>
+      <stop offset="1" stop-color="#77C3A0" stop-opacity=".62"/>
+    </linearGradient>
+    <linearGradient id="inset-ring" x1="625" y1="226" x2="625" y2="1005" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6BBF9D"/>
+      <stop offset=".36" stop-color="#479775"/>
+      <stop offset=".75" stop-color="#28694E"/>
+      <stop offset="1" stop-color="#3B8463"/>
+    </linearGradient>
+    <linearGradient id="rim-light" x1="319" y1="245" x2="757" y2="233" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset=".33" stop-color="#F0FFF8" stop-opacity=".90"/>
+      <stop offset=".70" stop-color="#CEFFE7" stop-opacity=".60"/>
+      <stop offset="1" stop-color="#8DCEAF" stop-opacity="0"/>
+    </linearGradient>
+
+    <linearGradient id="rear-ivory" x1="405" y1="352" x2="684" y2="773" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D7F5E8"/>
+      <stop offset=".45" stop-color="#B7DECD"/>
+      <stop offset="1" stop-color="#87B79F"/>
+    </linearGradient>
+    <linearGradient id="paper-ivory" x1="682.5" y1="444" x2="682.5" y2="893" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FAFFFC"/>
+      <stop offset=".22" stop-color="#ECF8F1"/>
+      <stop offset=".55" stop-color="#DFEFE5"/>
+      <stop offset="1" stop-color="#C6DED0"/>
+    </linearGradient>
+    <linearGradient id="paper-edge" x1="524" y1="448" x2="856" y2="882" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF" stop-opacity=".95"/>
+      <stop offset=".40" stop-color="#E7F6EE" stop-opacity=".70"/>
+      <stop offset="1" stop-color="#78A98C" stop-opacity=".85"/>
+    </linearGradient>
+    <linearGradient id="check-green" x1="648" y1="584" x2="712" y2="752" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1C8B65"/>
+      <stop offset=".50" stop-color="#157450"/>
+      <stop offset="1" stop-color="#105E3D"/>
+    </linearGradient>
+
+    <clipPath id="tile-clip"><use href="#tile"/></clipPath>
+    <filter id="soft-edge" x="50" y="56" width="1153" height="1137" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="3.8"/>
+    </filter>
+    <filter id="tile-shadow" x="35" y="70" width="1190" height="1147" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur"/>
+      <feOffset in="blur" dx="2" dy="9" result="offset"/>
+      <feFlood flood-color="#020306" flood-opacity=".26"/>
+      <feComposite in2="offset" operator="in" result="shadow"/>
+      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="plate-shadow" x="150" y="146" width="965" height="969" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="9" result="blur"/>
+      <feOffset in="blur" dx="6" dy="14" result="offset"/>
+      <feFlood flood-color="#020E09" flood-opacity=".66"/>
+      <feComposite in2="offset" operator="in" result="shadow"/>
+      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="rear-shadow" x="340" y="321" width="405" height="496" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+      <feOffset in="blur" dx="2" dy="6" result="offset"/>
+      <feFlood flood-color="#031D11" flood-opacity=".64"/>
+      <feComposite in2="offset" operator="in" result="shadow"/>
+      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="paper-shadow" x="464" y="416" width="443" height="526" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="7" result="blur"/>
+      <feOffset in="blur" dx="4" dy="10" result="offset"/>
+      <feFlood flood-color="#03190E" flood-opacity=".66"/>
+      <feComposite in2="offset" operator="in" result="shadow"/>
+      <feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="paper-bevel" x="492" y="436" width="381" height="465" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="soft-alpha"/>
+      <feOffset in="soft-alpha" dx="1" dy="2" result="down-alpha"/>
+      <feComposite in="SourceAlpha" in2="down-alpha" operator="out" result="upper-edge"/>
+      <feFlood flood-color="#FFFFFF" flood-opacity=".76"/>
+      <feComposite in2="upper-edge" operator="in" result="light"/>
+      <feOffset in="soft-alpha" dx="-1" dy="-2" result="up-alpha"/>
+      <feComposite in="SourceAlpha" in2="up-alpha" operator="out" result="lower-edge"/>
+      <feFlood flood-color="#6A997B" flood-opacity=".38"/>
+      <feComposite in2="lower-edge" operator="in" result="shade"/>
+      <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="light"/><feMergeNode in="shade"/></feMerge>
+    </filter>
+  </defs>
+
+  <g id="charcoal-base" filter="url(#tile-shadow)">
+    <use href="#tile" fill="url(#tile-fill)"/>
+    <use href="#tile" fill="url(#tile-light)"/>
+    <use href="#tile" fill="url(#tile-shade)"/>
+    <g clip-path="url(#tile-clip)">
+      <ellipse cx="661" cy="866" rx="552" ry="348" fill="url(#contact-shade)"/>
+    </g>
+    <use href="#tile" stroke="url(#tile-edge)" stroke-width="3.6"/>
+    <use href="#tile" stroke="url(#tile-bevel)" stroke-width="14" filter="url(#soft-edge)" clip-path="url(#tile-clip)"/>
+    <path d="M320 98H934C1078 98 1161 181 1161 325V924C1161 1068 1078 1151 934 1151H320C176 1151 92 1068 92 924V325C92 181 176 98 320 98Z" stroke="url(#tile-inner-edge)" stroke-width="1.3"/>
+  </g>
+
+  <g id="emerald-enamel-plate">
+    <circle cx="624.5" cy="615.5" r="438.5" fill="url(#plate-bevel)" stroke="url(#plate-edge)" stroke-width="1.6" filter="url(#plate-shadow)"/>
+    <circle cx="624.5" cy="615.5" r="438" fill="url(#plate-shade)"/>
+    <circle cx="624.5" cy="615.5" r="425.7" fill="url(#enamel)" stroke="url(#enamel-edge)" stroke-width="1.6"/>
+    <circle cx="624.5" cy="615.5" r="424.7" fill="url(#enamel-light)"/>
+    <circle cx="624.5" cy="615.5" r="386" stroke="url(#inset-ring)" stroke-width="6.2"/>
+    <path d="M303 320A438.5 438.5 0 0 1 842 234" stroke="url(#rim-light)" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <g id="copy-sheets">
+    <rect id="rear-sheet" x="382" y="358" width="313" height="406" rx="42" stroke="url(#rear-ivory)" stroke-width="32" filter="url(#rear-shadow)"/>
+    <path d="M399 401V398Q399 375 422 375H651" stroke="#F3FFF7" stroke-opacity=".38" stroke-width="2.2" stroke-linecap="round"/>
+    <g filter="url(#paper-shadow)">
+      <use href="#front-sheet" fill="url(#paper-ivory)" stroke="url(#paper-edge)" stroke-width="2" filter="url(#paper-bevel)"/>
+    </g>
+    <!-- A shallow inset check: straight strokes with gently rounded joins. -->
+    <use href="#check" transform="translate(0 2.8)" stroke="#FFFFFF" stroke-opacity=".60" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+    <use href="#check" stroke="url(#check-green)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
