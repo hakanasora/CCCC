@@ -2,7 +2,7 @@ param(
     [string]$FontDirectory = (Join-Path $PSScriptRoot 'assets/fonts'),
     [string]$OutputDirectory = (Join-Path $PSScriptRoot 'artifacts/build'),
     [switch]$CheckAnimation,
-    [switch]$TaskbarExperiment,
+    [switch]$TaskbarExperiment = $true,
     [switch]$CheckTaskbar
 )
 $ErrorActionPreference = 'Stop'

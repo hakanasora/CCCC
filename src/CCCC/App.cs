@@ -20,8 +20,9 @@ using Forms = System.Windows.Forms;
 [assembly: AssemblyDescription("Windows 复制确认与连按反馈工具")]
 [assembly: AssemblyCompany("CCCC")]
 [assembly: AssemblyProduct("CCCC")]
-[assembly: AssemblyVersion("2.4.6.0")]
-[assembly: AssemblyFileVersion("2.4.6.0")]
+[assembly: AssemblyVersion("2.4.7.0")]
+[assembly: AssemblyFileVersion("2.4.7.0")]
+[assembly: AssemblyInformationalVersion("2.4.7-preview.1")]
 [assembly: TargetFramework(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
 
 namespace CCCC
@@ -307,7 +308,7 @@ namespace CCCC
             if (ToastProfile.IsExperiment)
             {
                 startupItem.Checked = false; startupItem.Enabled = false;
-                startupItem.Text = "开机自启动（试验版不提供）"; return;
+                startupItem.Text = "开机自启动（预览版暂不提供）"; return;
             }
             try { SetStartupItem(startup.Read()); }
             catch (Exception error)

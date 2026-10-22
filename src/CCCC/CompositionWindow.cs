@@ -49,7 +49,7 @@ namespace CCCC
                 registered = true;
             }
             // NOACTIVATE | NOREDIRECTIONBITMAP | TOOLWINDOW | TRANSPARENT | TOPMOST.
-            handle = CreateWindowEx(0x082000A8, ClassName, "CCCC 2.4.6 Acrylic", 0x80000000,
+            handle = CreateWindowEx(0x082000A8, ClassName, "CCCC " + ToastProfile.Label + " Acrylic", 0x80000000,
                 0, 0, 1, 1, IntPtr.Zero, IntPtr.Zero, Native.GetModuleHandle(null), IntPtr.Zero);
             if (handle == IntPtr.Zero) throw new Win32Exception();
         }
