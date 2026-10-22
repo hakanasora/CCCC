@@ -1,0 +1,28 @@
+{
+  "source": "User-approved light opacity adjustment to 80%, 2026-10-23; no validation performed",
+  "appliesTo": "taskbar-style-only",
+  "condition": "material enabled and system transparency allowed",
+  "light": {
+    "fill": "#F0F0F0",
+    "fillOpacity": 0.8,
+    "rim": "#000000",
+    "rimOpacity": 0,
+    "shadowColor": "#000000",
+    "shadowOpacity": 0.0235
+  },
+  "dark": {
+    "fill": "#FFFFFF",
+    "fillOpacity": 0.06,
+    "rim": "#FFFFFF",
+    "rimOpacity": 0,
+    "shadowColor": "#000000",
+    "shadowOpacity": 0
+  },
+  "shadow": {
+    "offsetXDip": 0,
+    "offsetYDip": 2,
+    "blurDip": 7,
+    "implementation": "cached separable software blur approximation"
+  },
+  "ordinaryCard": "unchanged"
+}

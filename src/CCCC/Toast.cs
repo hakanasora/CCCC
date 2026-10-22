@@ -14,8 +14,8 @@ namespace CCCC
 {
     internal sealed class ToastWindow : Window
     {
-        internal const double OuterWidth = CardBackgroundRenderer.LogicalWidth;
-        internal const double OuterHeight = CardBackgroundRenderer.LogicalHeight;
+        internal static double OuterWidth { get { return CardBackgroundRenderer.LogicalWidth; } }
+        internal static double OuterHeight { get { return CardBackgroundRenderer.LogicalHeight; } }
         private readonly Grid surface;
         private readonly Grid counterContent;
         private readonly Image background;
@@ -43,6 +43,12 @@ namespace CCCC
         private IntPtr hwnd, anchorWindow;
         private int revision;
         private bool positioning, refreshQueued, closed;
+#if TASKBAR_EXPERIMENT
+        private bool taskbarSpotPinned;
+        private Point taskbarSpot;
+        private IntPtr taskbarMonitor;
+        private int taskbarDpi;
+#endif
         internal Feedback Current { get; private set; }
         internal IntPtr Handle { get { return new WindowInteropHelper(this).EnsureHandle(); } }
         internal int BackgroundBuildCount { get { return backgrounds.BuildCount; } }
@@ -80,7 +86,8 @@ namespace CCCC
         internal ToastWindow(bool materialEnabled)
         {
             Themes.MaterialEnabled = materialEnabled;
-            Title = "CCCC 2.4.6 · 复制提示";
+            if (ToastProfile.Compact) Themes.MaterialAvailable = false;
+            Title = "CCCC " + ToastProfile.Label + " · 复制提示";
             Width = OuterWidth; Height = OuterHeight;
             WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
             AllowsTransparency = true; Background = Brushes.Transparent;
@@ -102,19 +109,20 @@ namespace CCCC
             // Transparent content host. All card pixels are in the background layer;
             // no parent Effect; each text element owns its four-times glyph cache.
             card = new Border { Margin = new Thickness(32), Padding = new Thickness(1) };
-            Grid body = new Grid { Margin = new Thickness(17, 0, 15, 0) };
-            body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
-            body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(13) });
-            body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(211) });
-            body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(68) });
-            badge = new Border { Width = 32, Height = 32, CornerRadius = new CornerRadius(16),
+            bool compact = ToastProfile.Compact;
+            Grid body = new Grid { Margin = compact ? new Thickness(6, 0, 5, 0) : new Thickness(17, 0, 15, 0) };
+            body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(compact ? 18 : 34) });
+            body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(compact ? 8 : 13) });
+            body.ColumnDefinitions.Add(new ColumnDefinition { Width = compact ? new GridLength(1, GridUnitType.Star) : new GridLength(211) });
+            body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(compact ? 44 : 68) });
+            badge = new Border { Width = compact ? 18 : 32, Height = compact ? 18 : 32, CornerRadius = new CornerRadius(compact ? 9 : 16),
                 Background = Brush("#15976B"), VerticalAlignment = VerticalAlignment.Center };
             symbol = new SampledText(textPixels) { Text = "!", FontFamily = EmbeddedFonts.Family,
-                FontSize = 19, FontWeight = EmbeddedFonts.TitleWeight, Foreground = Brush("#DDF6EB"),
+                FontSize = compact ? 13 : 19, FontWeight = EmbeddedFonts.TitleWeight, Foreground = Brush("#DDF6EB"),
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, -1, 0, 0), Visibility = Visibility.Hidden };
-            checkMark = new System.Windows.Shapes.Path { Data = CheckGeometry, Width = 18, Height = 18,
-                Stroke = Brush("#DDF6EB"), StrokeThickness = 2, Stretch = Stretch.None,
+            checkMark = new System.Windows.Shapes.Path { Data = CheckGeometry, Width = compact ? 12 : 18, Height = compact ? 12 : 18,
+                Stroke = Brush("#DDF6EB"), StrokeThickness = compact ? 1.5 : 2, Stretch = compact ? Stretch.Uniform : Stretch.None,
                 StrokeStartLineCap = PenLineCap.Round, StrokeEndLineCap = PenLineCap.Round,
                 StrokeLineJoin = PenLineJoin.Round, HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center, SnapsToDevicePixels = false };
@@ -128,11 +136,12 @@ namespace CCCC
             detail = new SampledText(textPixels) { FontSize = 12, FontWeight = EmbeddedFonts.BodyWeight, Foreground = Brush("#6E6E73"),
                 Margin = new Thickness(0, 4, 0, 0), TextTrimming = TextTrimming.CharacterEllipsis,
                 TextWrapping = TextWrapping.NoWrap };
+            if (compact) detail.Visibility = Visibility.Collapsed;
             copy.Children.Add(title); copy.Children.Add(detail);
             Grid.SetColumn(copy, 2); body.Children.Add(copy);
-            counter = new Border { CornerRadius = new CornerRadius(9), Background = Brush("#E9E9ED"),
-                Padding = new Thickness(4, 5, 4, 5), Margin = new Thickness(8, 0, 0, 0),
-                Width = 48, Height = 28, HorizontalAlignment = HorizontalAlignment.Right,
+            counter = new Border { CornerRadius = new CornerRadius(compact ? 10 : 9), Background = Brush("#E9E9ED"),
+                Padding = compact ? new Thickness(0) : new Thickness(4, 5, 4, 5), Margin = new Thickness(8, 0, 0, 0),
+                Width = compact ? 36 : 48, Height = compact ? 20 : 28, HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Hidden };
             FontFamily counterFont = new FontFamily("Bahnschrift, Segoe UI");
             times = new SampledText(textPixels) { FontFamily = counterFont, FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = Brush("#1D1D1F") };
@@ -153,7 +162,7 @@ namespace CCCC
             // Natural counter widths keep the whole sampled glyph group centered.
             TextOptions.SetTextFormattingMode(times, TextFormattingMode.Ideal);
             TextOptions.SetTextFormattingMode(overflow, TextFormattingMode.Ideal);
-            counterContent = new Grid { Height = 18, HorizontalAlignment = HorizontalAlignment.Center };
+            counterContent = new Grid { Height = compact ? 16 : 18, HorizontalAlignment = HorizontalAlignment.Center };
             counterContent.Children.Add(times); counterContent.Children.Add(overflow);
             counter.RenderTransform = countScale; counter.RenderTransformOrigin = new Point(.5, .5);
             counter.Child = counterContent; Grid.SetColumn(counter, 3); body.Children.Add(counter);
@@ -167,6 +176,10 @@ namespace CCCC
                 {
                     if (message == 0x21) { handled = true; return new IntPtr(3); }
                     if (message == 0x84) { handled = true; return new IntPtr(-1); }
+#if TASKBAR_EXPERIMENT
+                    if (message == 0x007E || message == 0x001A || message == TaskbarPlacement.RecreatedMessage)
+                    { TaskbarPlacement.Invalidate(); taskbarSpotPinned = false; }
+#endif
                     if (message == 0x02E0 || message == 0x007E || message == 0x001A) QueueDpiRefresh();
                     // WPF must process WM_DPICHANGED itself; do not mark it handled.
                     return IntPtr.Zero;
@@ -197,7 +210,9 @@ namespace CCCC
             bool neutral = value.Kind == FeedbackKind.Updated || value.Kind == FeedbackKind.Retained;
             Appearance theme = Themes.Current;
             title.Foreground = Brush(theme.Text); detail.Foreground = Brush(theme.Detail);
-            counter.Background = Brush(theme.Counter); times.Foreground = overflow.Foreground = Brush(theme.CountText);
+            counter.Background = Brush(ToastProfile.Compact && Themes.MaterialEnabled && theme.Transparent ?
+                (theme.Dark ? "#18FFFFFF" : "#10000000") : theme.Counter);
+            times.Foreground = overflow.Foreground = Brush(theme.CountText);
             checkMark.Visibility = warning || neutral ? Visibility.Hidden : Visibility.Visible;
             symbol.Visibility = warning || neutral ? Visibility.Visible : Visibility.Hidden;
             symbol.Text = warning ? "!" : "·";
@@ -221,7 +236,7 @@ namespace CCCC
 
         private void TryMaterial()
         {
-            if (hwnd == IntPtr.Zero || acrylic != null || !Themes.MaterialEnabled || !Themes.Current.Transparent) return;
+            if (ToastProfile.Compact || hwnd == IntPtr.Zero || acrylic != null || !Themes.MaterialEnabled || !Themes.Current.Transparent) return;
             try
             {
 #if PRESENTATION_CHECKS
@@ -426,6 +441,20 @@ namespace CCCC
                 int width = (int)Math.Round(OuterWidth * scale), height = (int)Math.Round(OuterHeight * scale);
                 int x = info.Work.Left + (int)Math.Round(-12 * scale);
                 int y = info.Work.Bottom - height + (int)Math.Round(12 * scale);
+#if TASKBAR_EXPERIMENT
+                if (ToastProfile.Compact)
+                {
+                    TaskbarPlacement.RequestRefresh();
+                    // A background result must not move an ongoing copy sequence.
+                    if (!IsVisible || !taskbarSpotPinned || taskbarMonitor != monitor || taskbarDpi != dpi)
+                    {
+                        taskbarSpot = TaskbarPlacement.Resolve(info.Monitor, info.Work, dpi);
+                        taskbarSpotPinned = true; taskbarMonitor = monitor; taskbarDpi = dpi;
+                    }
+                    x = (int)Math.Round(taskbarSpot.X - 32 * scale);
+                    y = (int)Math.Round(taskbarSpot.Y - 32 * scale);
+                }
+#endif
                 if (acrylic != null)
                 {
                     try
@@ -580,7 +609,7 @@ namespace CCCC
         internal double TestCopyQueueMilliseconds { get { return lastCopyQueueMilliseconds; } }
         internal sealed class LayoutSnapshot
         {
-            internal Rect Title, Detail, Counter, Group, Number, Plus;
+            internal Rect Title, Detail, Counter, Group, Number, Plus, Badge;
             internal string NumberText;
             internal bool HasOverflow;
             internal double NumberFont, PlusFont;
@@ -605,7 +634,7 @@ namespace CCCC
             UpdateTitle(Current.Title, false);
             surface.Measure(new Size(OuterWidth, OuterHeight));
             surface.Arrange(new Rect(0, 0, OuterWidth, OuterHeight)); surface.UpdateLayout();
-            return new LayoutSnapshot { Title = TestBounds(title), Detail = TestBounds(detail),
+            return new LayoutSnapshot { Badge = TestBounds(badge), Title = TestBounds(title), Detail = TestBounds(detail),
                 Counter = TestBounds(counter), Group = TestBounds(counterContent), Number = TestBounds(times), Plus = TestBounds(overflow),
                 NumberText = times.Text, HasOverflow = overflow.Visibility == Visibility.Visible,
                 NumberFont = times.FontSize, PlusFont = overflow.FontSize,

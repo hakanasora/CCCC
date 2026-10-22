@@ -75,8 +75,9 @@ namespace CCCC
     {
         internal bool ShowPreview = true;
         internal bool UseMaterial = true;
+        internal bool UseTaskbar = ToastProfile.IsExperiment;
         private readonly string path;
-        internal Preferences() : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CCCC", "settings.txt")) { }
+        internal Preferences() : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CCCC", ToastProfile.SettingsFile)) { }
         internal Preferences(string path)
         {
             this.path = path;
@@ -90,6 +91,8 @@ namespace CCCC
                         else if (line == "preview=on") ShowPreview = true;
                         else if (line == "material=off") UseMaterial = false;
                         else if (line == "material=on") UseMaterial = true;
+                        else if (line == "layout=card") UseTaskbar = false;
+                        else if (line == "layout=taskbar") UseTaskbar = true;
                     }
             }
             catch (IOException) { }
@@ -101,7 +104,8 @@ namespace CCCC
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 File.WriteAllText(path, (ShowPreview ? "preview=on" : "preview=off") + Environment.NewLine +
-                    (UseMaterial ? "material=on" : "material=off") + Environment.NewLine);
+                    (UseMaterial ? "material=on" : "material=off") + Environment.NewLine +
+                    (ToastProfile.IsExperiment ? (UseTaskbar ? "layout=taskbar" : "layout=card") + Environment.NewLine : ""));
             }
             catch (IOException) { }
             catch (UnauthorizedAccessException) { }
@@ -114,7 +118,7 @@ namespace CCCC
         private readonly FeedbackEngine engine = new FeedbackEngine();
         private readonly CopyKeyDetector keys = new CopyKeyDetector();
         private readonly Preferences preferences = new Preferences();
-        private readonly ToastWindow toast;
+        private ToastWindow toast;
         private readonly StartupRegistration startup = new StartupRegistration(new WindowsStartupStore(), Assembly.GetExecutingAssembly().Location);
         private HwndSource source;
         private ClipboardWorker worker;
@@ -122,15 +126,26 @@ namespace CCCC
         private IntPtr hook;
         private Forms.NotifyIcon tray;
         private Forms.MenuItem pauseItem, previewItem, materialItem, startupItem;
+#if TASKBAR_EXPERIMENT
+        private Forms.MenuItem cardStyleItem, taskbarStyleItem, positionStatusItem;
+#endif
         private System.Drawing.Icon trayIcon;
         private DispatcherTimer deadlineTimer;
         private bool paused, disposed, faulted;
         private int generation;
         internal CopyApplication(Application app)
-        { this.app = app; toast = new ToastWindow(preferences.UseMaterial); }
+        {
+            this.app = app;
+            ToastProfile.SetCompact(preferences.UseTaskbar);
+            Themes.Refresh();
+            toast = new ToastWindow(preferences.UseMaterial);
+        }
 
         internal void Start()
         {
+#if TASKBAR_EXPERIMENT
+            if (ToastProfile.Compact) TaskbarPlacement.RequestRefresh();
+#endif
             HwndSourceParameters parameters = new HwndSourceParameters("CCCC Clipboard Listener") {
                 WindowStyle = unchecked((int)0x80000000), Width = 0, Height = 0 };
             source = new HwndSource(parameters);
@@ -161,7 +176,7 @@ namespace CCCC
             trayIcon = System.Drawing.Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location);
             tray = new Forms.NotifyIcon { Icon = trayIcon, Text = "CCCC · 复制确认", Visible = true };
             Forms.ContextMenu menu = new Forms.ContextMenu();
-            Forms.MenuItem heading = new Forms.MenuItem("CCCC 复制确认 · 2.4.6") { Enabled = false };
+            Forms.MenuItem heading = new Forms.MenuItem("CCCC 复制确认 · " + ToastProfile.Label) { Enabled = false };
             pauseItem = new Forms.MenuItem("暂停提示") { Checked = paused };
             pauseItem.Click += delegate { SetPaused(!paused); };
             previewItem = new Forms.MenuItem("显示内容预览") { Checked = preferences.ShowPreview };
@@ -181,8 +196,8 @@ namespace CCCC
                 materialItem.Checked = preferences.UseMaterial;
                 preferences.Save();
                 toast.SetMaterialEnabled(preferences.UseMaterial);
-                Status(preferences.UseMaterial ? "高级材质已开启" : "高级材质已关闭",
-                    preferences.UseMaterial ? "系统允许时显示 Acrylic 材质" : "使用纯色背景，保留文字与动画");
+                Status(preferences.UseMaterial ? (ToastProfile.Compact ? "任务栏融合已开启" : "高级材质已开启") : "高级材质已关闭",
+                    preferences.UseMaterial ? (ToastProfile.Compact ? "借用任务栏背景，不叠加额外模糊" : "系统允许时显示 Acrylic 材质") : "使用纯色背景，保留文字与动画");
             };
             Forms.MenuItem exit = new Forms.MenuItem("退出 CCCC");
             startupItem = new Forms.MenuItem("开机自启动");
@@ -207,17 +222,28 @@ namespace CCCC
             menu.MenuItems.Add(heading); menu.MenuItems.Add(new Forms.MenuItem("-"));
             menu.MenuItems.Add(pauseItem); menu.MenuItems.Add(previewItem); menu.MenuItems.Add(startupItem);
             menu.MenuItems.Add(materialItem);
+#if TASKBAR_EXPERIMENT
+            Forms.MenuItem styleMenu = new Forms.MenuItem("提示样式");
+            cardStyleItem = new Forms.MenuItem("普通卡片") { RadioCheck = true };
+            taskbarStyleItem = new Forms.MenuItem("任务栏单行") { RadioCheck = true };
+            cardStyleItem.Click += delegate { SwitchLayout(false); };
+            taskbarStyleItem.Click += delegate { SwitchLayout(true); };
+            styleMenu.MenuItems.Add(cardStyleItem); styleMenu.MenuItems.Add(taskbarStyleItem);
+            positionStatusItem = new Forms.MenuItem() { Enabled = false };
+            menu.MenuItems.Add(styleMenu); menu.MenuItems.Add(positionStatusItem);
+#endif
             menu.MenuItems.Add(new Forms.MenuItem("-")); menu.MenuItems.Add(exit);
             menu.Popup += delegate
             {
                 if (Themes.Refresh()) toast.RefreshAppearance();
                 ApplyMenuTheme();
                 pauseItem.Checked = paused;
-                previewItem.Checked = preferences.ShowPreview;
+                RefreshLayoutItems();
                 materialItem.Checked = preferences.UseMaterial;
                 RefreshStartupItem();
             };
             RefreshStartupItem();
+            RefreshLayoutItems();
             tray.ContextMenu = menu;
             ApplyMenuTheme();
             tray.DoubleClick += delegate { Status(paused ? "CCCC 已暂停" : "CCCC 正在运行",
@@ -226,6 +252,46 @@ namespace CCCC
 
         private static bool StartupSettingError(Exception error)
         { return error is IOException || error is UnauthorizedAccessException || error is SecurityException || error is ArgumentException; }
+
+        private void RefreshLayoutItems()
+        {
+            previewItem.Enabled = !ToastProfile.Compact;
+            previewItem.Checked = !ToastProfile.Compact && preferences.ShowPreview;
+            previewItem.Text = ToastProfile.Compact ? "内容预览（单行样式不显示）" : "显示内容预览";
+            materialItem.Text = ToastProfile.Compact ? "融合任务栏背景" : "高级材质";
+#if TASKBAR_EXPERIMENT
+            cardStyleItem.Checked = !ToastProfile.Compact;
+            taskbarStyleItem.Checked = ToastProfile.Compact;
+            positionStatusItem.Visible = ToastProfile.Compact;
+            positionStatusItem.Text = "定位：" + TaskbarPlacement.LastDecision;
+#endif
+        }
+
+#if TASKBAR_EXPERIMENT
+        private void SwitchLayout(bool compact)
+        {
+            if (ToastProfile.Compact == compact || disposed) return;
+            // Close the old layout and its material before changing the shared
+            // profile. Pending clipboard completions belong to the old epoch.
+            generation++;
+            engine.Reset(Native.GetClipboardSequenceNumber());
+            deadlineTimer.Stop();
+            toast = ReplaceLayout(toast, compact, preferences.UseMaterial);
+            preferences.UseTaskbar = compact; preferences.Save();
+            if (compact) TaskbarPlacement.RequestRefresh();
+            RefreshLayoutItems(); ApplyMenuTheme();
+            Status(compact ? "已切换任务栏单行" : "已切换普通卡片", "复制反馈与动画保持不变");
+        }
+
+        internal static ToastWindow ReplaceLayout(ToastWindow previous, bool compact, bool material)
+        {
+            previous.HideAndClear(); previous.Close();
+            ToastProfile.SetCompact(compact);
+            Themes.MaterialAvailable = false;
+            Themes.Refresh();
+            return new ToastWindow(material);
+        }
+#endif
 
         private void SetStartupItem(StartupState state)
         {
@@ -238,6 +304,11 @@ namespace CCCC
 
         private void RefreshStartupItem()
         {
+            if (ToastProfile.IsExperiment)
+            {
+                startupItem.Checked = false; startupItem.Enabled = false;
+                startupItem.Text = "开机自启动（试验版不提供）"; return;
+            }
             try { SetStartupItem(startup.Read()); }
             catch (Exception error)
             {
