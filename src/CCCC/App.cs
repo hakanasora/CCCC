@@ -197,7 +197,7 @@ namespace CCCC
                 materialItem.Checked = preferences.UseMaterial;
                 preferences.Save();
                 toast.SetMaterialEnabled(preferences.UseMaterial);
-                Status(preferences.UseMaterial ? (ToastProfile.Compact ? "任务栏融合已开启" : "高级材质已开启") : "高级材质已关闭",
+                Status(preferences.UseMaterial ? "高级材质已开启" : "高级材质已关闭",
                     preferences.UseMaterial ? (ToastProfile.Compact ? "借用任务栏背景，不叠加额外模糊" : "系统允许时显示 Acrylic 材质") : "使用纯色背景，保留文字与动画");
             };
             Forms.MenuItem exit = new Forms.MenuItem("退出 CCCC");
@@ -259,7 +259,8 @@ namespace CCCC
             previewItem.Enabled = !ToastProfile.Compact;
             previewItem.Checked = !ToastProfile.Compact && preferences.ShowPreview;
             previewItem.Text = ToastProfile.Compact ? "内容预览（单行样式不显示）" : "显示内容预览";
-            materialItem.Text = ToastProfile.Compact ? "融合任务栏背景" : "高级材质";
+            materialItem.Text = "高级材质";
+            materialItem.Checked = preferences.UseMaterial;
 #if TASKBAR_EXPERIMENT
             cardStyleItem.Checked = !ToastProfile.Compact;
             taskbarStyleItem.Checked = ToastProfile.Compact;
@@ -305,11 +306,6 @@ namespace CCCC
 
         private void RefreshStartupItem()
         {
-            if (ToastProfile.IsExperiment)
-            {
-                startupItem.Checked = false; startupItem.Enabled = false;
-                startupItem.Text = "开机自启动（预览版暂不提供）"; return;
-            }
             try { SetStartupItem(startup.Read()); }
             catch (Exception error)
             {
