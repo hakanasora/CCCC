@@ -1,7 +1,9 @@
 param(
     [string]$FontDirectory = (Join-Path $PSScriptRoot 'assets/fonts'),
     [string]$OutputDirectory = (Join-Path $PSScriptRoot 'artifacts/build'),
-    [switch]$CheckAnimation
+    [switch]$CheckAnimation,
+    [switch]$TaskbarExperiment,
+    [switch]$CheckTaskbar
 )
 $ErrorActionPreference = 'Stop'
 
@@ -18,9 +20,12 @@ if (-not (Test-Path -LiteralPath $compiler -PathType Leaf)) {
     throw '.NET Framework 4.8 x64 build components are required.'
 }
 $framework = Split-Path $compiler
+if ($CheckTaskbar -and -not $TaskbarExperiment) { throw '-CheckTaskbar requires -TaskbarExperiment.' }
+if ($TaskbarExperiment -and $CheckAnimation) { throw 'Use -CheckTaskbar for the offscreen experiment checks.' }
 $references = @('System.dll', 'System.Core.dll', 'System.Numerics.dll', 'System.Runtime.WindowsRuntime.dll',
     'System.Drawing.dll', 'System.Windows.Forms.dll', 'System.Xaml.dll',
     'WPF/WindowsBase.dll', 'WPF/PresentationCore.dll', 'WPF/PresentationFramework.dll')
+if ($TaskbarExperiment) { $references += @('WPF/UIAutomationClient.dll', 'WPF/UIAutomationTypes.dll') }
 $referenceArguments = @()
 foreach ($reference in $references) {
     $path = Join-Path $framework $reference
@@ -53,15 +58,28 @@ finally { $writer.Dispose() }
 $sourceFolder = Join-Path $PSScriptRoot 'src/CCCC'
 $sources = @('Core.cs', 'Native.cs', 'Rendering.cs', 'CompositionWindow.cs', 'Acrylic.cs', 'Theme.cs',
     'NativeMenuTheme.cs', 'Motion.cs', 'Startup.cs', 'EmbeddedFonts.cs', 'TextPixelWorkspace.cs',
-    'SampledText.cs', 'Toast.cs', 'App.cs') | ForEach-Object { Join-Path $sourceFolder $_ }
+    'SampledText.cs', 'Toast.cs', 'ToastProfile.cs', 'TaskbarPlacement.cs', 'App.cs') | ForEach-Object { Join-Path $sourceFolder $_ }
 $manifest = Join-Path $PSScriptRoot 'assets/app.manifest'
 $common = @('/nologo', '/optimize+', '/platform:x64', '/codepage:65001', ('/win32manifest:' + $manifest))
+if ($TaskbarExperiment) { $common += '/define:TASKBAR_EXPERIMENT' }
 $arguments = $common + @('/target:winexe', ('/out:' + (Join-Path $output 'CCCC.exe')),
     ('/win32icon:' + (Join-Path $PSScriptRoot 'assets/CCCC.ico')),
     ('/resource:' + $fontResources + ',CCCC.g.resources')) + $referenceArguments + $sources
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'CCCC build failed.' }
 Write-Output ('Built ' + (Join-Path $output 'CCCC.exe'))
+
+if ($CheckTaskbar) {
+    $name = 'CCCC.TaskbarChecks'
+    $arguments = $common + @('/target:exe', '/define:TESTS', ('/main:' + $name),
+        ('/out:' + (Join-Path $output ($name + '.exe'))),
+        ('/resource:' + $fontResources + ',' + $name + '.g.resources')) + $referenceArguments + $sources +
+        @((Join-Path $PSScriptRoot 'tests/TaskbarChecks.cs'))
+    & $compiler @arguments
+    if ($LASTEXITCODE -ne 0) { throw 'Taskbar diagnostic build failed.' }
+    & (Join-Path $output ($name + '.exe'))
+    if ($LASTEXITCODE -ne 0) { throw 'Taskbar offscreen checks failed.' }
+}
 
 if ($CheckAnimation) {
     $name = 'CCCC.AnimationChecks'

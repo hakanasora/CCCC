@@ -76,7 +76,7 @@ namespace CCCC
         internal bool ShowPreview = true;
         internal bool UseMaterial = true;
         private readonly string path;
-        internal Preferences() : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CCCC", "settings.txt")) { }
+        internal Preferences() : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CCCC", ToastProfile.SettingsFile)) { }
         internal Preferences(string path)
         {
             this.path = path;
@@ -131,6 +131,9 @@ namespace CCCC
 
         internal void Start()
         {
+#if TASKBAR_EXPERIMENT
+            TaskbarPlacement.RequestRefresh();
+#endif
             HwndSourceParameters parameters = new HwndSourceParameters("CCCC Clipboard Listener") {
                 WindowStyle = unchecked((int)0x80000000), Width = 0, Height = 0 };
             source = new HwndSource(parameters);
@@ -161,10 +164,11 @@ namespace CCCC
             trayIcon = System.Drawing.Icon.ExtractAssociatedIcon(Assembly.GetExecutingAssembly().Location);
             tray = new Forms.NotifyIcon { Icon = trayIcon, Text = "CCCC · 复制确认", Visible = true };
             Forms.ContextMenu menu = new Forms.ContextMenu();
-            Forms.MenuItem heading = new Forms.MenuItem("CCCC 复制确认 · 2.4.6") { Enabled = false };
+            Forms.MenuItem heading = new Forms.MenuItem("CCCC 复制确认 · " + ToastProfile.Label) { Enabled = false };
             pauseItem = new Forms.MenuItem("暂停提示") { Checked = paused };
             pauseItem.Click += delegate { SetPaused(!paused); };
             previewItem = new Forms.MenuItem("显示内容预览") { Checked = preferences.ShowPreview };
+            if (ToastProfile.Compact) { previewItem.Text = "内容预览（单行试验版不显示）"; previewItem.Enabled = false; }
             previewItem.Click += delegate
             {
                 preferences.ShowPreview = !preferences.ShowPreview;
@@ -238,6 +242,11 @@ namespace CCCC
 
         private void RefreshStartupItem()
         {
+            if (ToastProfile.Compact)
+            {
+                startupItem.Checked = false; startupItem.Enabled = false;
+                startupItem.Text = "开机自启动（试验版不提供）"; return;
+            }
             try { SetStartupItem(startup.Read()); }
             catch (Exception error)
             {

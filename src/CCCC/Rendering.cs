@@ -65,6 +65,11 @@ namespace CCCC
 
         internal static Geometry Create(Rect rect, double scale)
         {
+            if (ToastProfile.Compact)
+            {
+                RectangleGeometry capsule = new RectangleGeometry(rect, rect.Height / 2, rect.Height / 2);
+                capsule.Freeze(); return capsule;
+            }
             double c = Math.Min(CornerExtent * scale, Math.Min(rect.Width, rect.Height) / 2);
             List<Point> corner = Flatten(Controls(c), FlattenTolerance);
             StreamGeometry geometry = new StreamGeometry();
@@ -123,7 +128,11 @@ namespace CCCC
 
     internal static class CardBackgroundRenderer
     {
+#if TASKBAR_EXPERIMENT
+        internal const int LogicalWidth = 289, LogicalHeight = 96;
+#else
         internal const int LogicalWidth = 424, LogicalHeight = 144;
+#endif
         private const int Sampling = 2;
 
         internal static BackgroundFrame Build(int dpi)
