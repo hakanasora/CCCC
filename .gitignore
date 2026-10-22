@@ -415,3 +415,7 @@ FodyWeavers.xsd
 *.mov
 *.webm
 !/docs/media/*.mp4
+
+# Public release notes are documentation, not build output.
+!/docs/releases/
+!/docs/releases/*.md
