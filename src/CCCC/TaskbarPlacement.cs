@@ -158,7 +158,7 @@ namespace CCCC
             return inside;
         }
 
-        // Pure geometry: checks include pulse growth; this profile has no shadow.
+        // Pure geometry: checks include pulse growth.
         internal static bool TryFindSlot(Rect bar, Rect[] occupied, double scale, out Point position)
         {
             position = new Point();

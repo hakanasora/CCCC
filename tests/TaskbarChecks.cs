@@ -82,8 +82,9 @@ namespace CCCC
                     byte[] center = new byte[4], outside = new byte[4];
                     blend.Bitmap.CopyPixels(new Int32Rect(100, 48, 1, 1), center, 4, 0);
                     blend.Bitmap.CopyPixels(new Int32Rect(28, 48, 1, 1), outside, 4, 0);
-                    Check(center[3] == (dark ? 10 : 6), "faint taskbar tint only");
-                    Check(outside[3] == 0, "no outer shadow");
+                    Check(center[3] == (dark ? 15 : 153), "user-selected taskbar opacity");
+                    Check(center[0] == (dark ? 15 : 144) && center[1] == center[0] && center[2] == center[0], "user-selected neutral taskbar fill");
+                    Check(dark ? outside[3] == 0 : outside[3] > 0 && outside[3] <= 6, "light-only weak shadow");
                     Themes.MaterialEnabled = false;
                     BackgroundFrame opaque = cache.Get(96);
                     opaque.Bitmap.CopyPixels(new Int32Rect(100, 48, 1, 1), center, 4, 0);

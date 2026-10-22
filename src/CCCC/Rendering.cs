@@ -144,6 +144,8 @@ namespace CCCC
             int margin = (int)Math.Round(32 * scale);
             Rect bounds = new Rect(margin + .5, margin + .5, width - 2 * margin - 1, height - 2 * margin - 1);
             Geometry outline = CardOutline.Create(bounds, scale);
+            bool taskbarBlend = ToastProfile.Compact && Themes.MaterialEnabled && Themes.Current.Transparent;
+            double taskbarShadow = taskbarBlend ? Themes.Current.TaskbarShadow : 0;
 
             // The drawing coordinates here are FINAL physical pixels. Only this
             // detached visual is rendered at 2x; text is never in this bitmap.
@@ -153,12 +155,12 @@ namespace CCCC
             {
                 Color color = Themes.Current.Fill;
                 color.A = Themes.UseAcrylic ? (byte)Math.Round(255 * Themes.Current.Tint) : (byte)255;
-                if (ToastProfile.Compact && Themes.MaterialEnabled && Themes.Current.Transparent)
+                if (taskbarBlend)
                 {
-                    // Let the existing taskbar material show through. No second
-                    // backdrop sampler, blur, grain, shadow or outlined card.
-                    color = Themes.Current.Dark ? Colors.White : Colors.Black;
-                    color.A = Themes.Current.Dark ? (byte)10 : (byte)6;
+                    // User-selected tint over the taskbar's existing material;
+                    // never create another backdrop sampler or add grain.
+                    color = Themes.Current.TaskbarFill;
+                    color.A = (byte)Math.Round(255 * Themes.Current.TaskbarTint);
                 }
                 SolidColorBrush fill = new SolidColorBrush(color); fill.Freeze();
                 SolidColorBrush line = new SolidColorBrush((Color)ColorConverter.ConvertFromString(Themes.Current.Rim)); line.Freeze();
@@ -171,17 +173,25 @@ namespace CCCC
             high.CopyPixels(body, highWidth * 4, 0);
 
             // A shadow-only alpha layer derived from exactly the same contour.
-            // Three separable box passes approximate sigma=3 logical pixels,
-            // with 9 logical pixels of support and the existing 15% shadow opacity.
+            // For the ordinary card, three separable box passes approximate
+            // sigma=3 logical pixels with the existing 15% shadow opacity.
+            // The compact light surface uses the separately selected weak shadow.
             // Running sums make each blur pass O(pixel count), independent of DPI.
             byte[] alpha = new byte[highWidth * highHeight], temporary = new byte[alpha.Length];
-            if (!ToastProfile.Compact)
-                for (int i = 0; i < alpha.Length; i++) alpha[i] = (byte)Math.Min(255, Math.Round(body[i * 4 + 3] / (Themes.UseAcrylic ? Themes.Current.Tint : 1)));
-            int radius = Math.Max(1, (int)Math.Round(3 * scale * Sampling - .5));
-            if (!ToastProfile.Compact)
+            bool drawShadow = !ToastProfile.Compact || taskbarShadow > 0;
+            double coverageTint = taskbarBlend ? Themes.Current.TaskbarTint : (Themes.UseAcrylic ? Themes.Current.Tint : 1);
+            if (drawShadow)
+                for (int i = 0; i < alpha.Length; i++) alpha[i] = (byte)Math.Min(255, Math.Round(body[i * 4 + 3] / coverageTint));
+            int radius = Math.Max(1, (int)Math.Round(ToastProfile.Compact ? 3.5 * scale * Sampling : 3 * scale * Sampling - .5));
+            if (drawShadow)
                 for (int pass = 0; pass < 3; pass++) BoxBlur(alpha, temporary, highWidth, highHeight, radius);
             int offset = (int)Math.Round(3 / Math.Sqrt(2) * scale * Sampling);
-            byte[] pixels = CompositeAndDownsample(body, alpha, highWidth, highHeight, offset);
+            // Match the tuning preview's weak vertical shadow: 0px 2px 7px.
+            // The existing separable blur is a software approximation of that
+            // browser blur, cached once per appearance/DPI, never per frame.
+            byte[] pixels = ToastProfile.Compact ? CompositeAndDownsample(body, alpha, highWidth, highHeight,
+                0, (int)Math.Round(2 * scale * Sampling), taskbarShadow, coverageTint) :
+                CompositeAndDownsample(body, alpha, highWidth, highHeight, offset);
             // 1.2% extra grain, cached with the background. Preserve premultiplied
             // alpha and avoid affecting the transparent shadow outside the card.
             for (int y = margin + 2; !ToastProfile.Compact && Themes.UseAcrylic && y < height - margin - 2; y++)
@@ -231,6 +241,13 @@ namespace CCCC
 
         internal static byte[] CompositeAndDownsample(byte[] body, byte[] shadow, int width, int height, int offset)
         {
+            return CompositeAndDownsample(body, shadow, width, height, offset, offset, .15,
+                Themes.UseAcrylic ? Themes.Current.Tint : 1);
+        }
+
+        private static byte[] CompositeAndDownsample(byte[] body, byte[] shadow, int width, int height,
+            int offsetX, int offsetY, double shadowStrength, double coverageTint)
+        {
             int outputWidth = width / 2, outputHeight = height / 2;
             byte[] output = new byte[outputWidth * outputHeight * 4];
             for (int y = 0; y < outputHeight; y++)
@@ -242,11 +259,10 @@ namespace CCCC
                         {
                             int highX = x * 2 + sx, highY = y * 2 + sy;
                             int index = (highY * width + highX) * 4;
-                            int shadowX = highX - offset, shadowY = highY - offset;
+                            int shadowX = highX - offsetX, shadowY = highY - offsetY;
                             int shadowAlpha = shadowX >= 0 && shadowY >= 0 && shadowX < width && shadowY < height ?
-                                (int)(shadow[shadowY * width + shadowX] * .15 + .5) : 0;
-                            double tint = Themes.UseAcrylic ? Themes.Current.Tint : 1;
-                            int coverage = Math.Min(255, (int)Math.Round(body[index + 3] / tint));
+                                (int)(shadow[shadowY * width + shadowX] * shadowStrength + .5) : 0;
+                            int coverage = Math.Min(255, (int)Math.Round(body[index + 3] / coverageTint));
                             int inverse = 255 - coverage;
                             int visibleShadow = (shadowAlpha * inverse + 127) / 255;
                             blue += body[index];
