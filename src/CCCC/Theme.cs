@@ -31,7 +31,7 @@ namespace CCCC
             {
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"))
                 {
-                    if (key != null) { value.Dark = Convert.ToInt32(key.GetValue("AppsUseLightTheme", 1)) == 0;
+                    if (key != null) { value.Dark = Convert.ToInt32(key.GetValue(ToastProfile.Compact ? "SystemUsesLightTheme" : "AppsUseLightTheme", 1)) == 0;
                         value.Transparent = Convert.ToInt32(key.GetValue("EnableTransparency", 1)) != 0; }
                 }
             }

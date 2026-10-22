@@ -4,13 +4,18 @@ namespace CCCC
     internal static class ToastProfile
     {
 #if TASKBAR_EXPERIMENT
-        internal static readonly bool Compact = true;
+        private static bool compact = true;
+        internal static readonly bool IsExperiment = true;
         internal const string SettingsFile = "settings-taskbar-experiment.txt";
-        internal const string Label = "2.4.6 · Taskbar preview 1";
+        internal const string Label = "2.4.6 · Taskbar preview 2";
 #else
-        internal static readonly bool Compact = false;
+        private static bool compact = false;
+        internal static readonly bool IsExperiment = false;
         internal const string SettingsFile = "settings.txt";
         internal const string Label = "2.4.6";
 #endif
+        internal static bool Compact { get { return compact; } }
+        internal static void SetCompact(bool value)
+        { compact = IsExperiment && value; }
     }
 }

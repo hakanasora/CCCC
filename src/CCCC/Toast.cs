@@ -14,8 +14,8 @@ namespace CCCC
 {
     internal sealed class ToastWindow : Window
     {
-        internal const double OuterWidth = CardBackgroundRenderer.LogicalWidth;
-        internal const double OuterHeight = CardBackgroundRenderer.LogicalHeight;
+        internal static double OuterWidth { get { return CardBackgroundRenderer.LogicalWidth; } }
+        internal static double OuterHeight { get { return CardBackgroundRenderer.LogicalHeight; } }
         private readonly Grid surface;
         private readonly Grid counterContent;
         private readonly Image background;
@@ -86,6 +86,7 @@ namespace CCCC
         internal ToastWindow(bool materialEnabled)
         {
             Themes.MaterialEnabled = materialEnabled;
+            if (ToastProfile.Compact) Themes.MaterialAvailable = false;
             Title = "CCCC " + ToastProfile.Label + " · 复制提示";
             Width = OuterWidth; Height = OuterHeight;
             WindowStyle = WindowStyle.None; ResizeMode = ResizeMode.NoResize;
@@ -209,7 +210,9 @@ namespace CCCC
             bool neutral = value.Kind == FeedbackKind.Updated || value.Kind == FeedbackKind.Retained;
             Appearance theme = Themes.Current;
             title.Foreground = Brush(theme.Text); detail.Foreground = Brush(theme.Detail);
-            counter.Background = Brush(theme.Counter); times.Foreground = overflow.Foreground = Brush(theme.CountText);
+            counter.Background = Brush(ToastProfile.Compact && Themes.MaterialEnabled && theme.Transparent ?
+                (theme.Dark ? "#18FFFFFF" : "#10000000") : theme.Counter);
+            times.Foreground = overflow.Foreground = Brush(theme.CountText);
             checkMark.Visibility = warning || neutral ? Visibility.Hidden : Visibility.Visible;
             symbol.Visibility = warning || neutral ? Visibility.Visible : Visibility.Hidden;
             symbol.Text = warning ? "!" : "·";
@@ -233,7 +236,7 @@ namespace CCCC
 
         private void TryMaterial()
         {
-            if (hwnd == IntPtr.Zero || acrylic != null || !Themes.MaterialEnabled || !Themes.Current.Transparent) return;
+            if (ToastProfile.Compact || hwnd == IntPtr.Zero || acrylic != null || !Themes.MaterialEnabled || !Themes.Current.Transparent) return;
             try
             {
 #if PRESENTATION_CHECKS
@@ -439,15 +442,18 @@ namespace CCCC
                 int x = info.Work.Left + (int)Math.Round(-12 * scale);
                 int y = info.Work.Bottom - height + (int)Math.Round(12 * scale);
 #if TASKBAR_EXPERIMENT
-                TaskbarPlacement.RequestRefresh();
-                // A background result must not move an ongoing copy sequence.
-                if (!IsVisible || !taskbarSpotPinned || taskbarMonitor != monitor || taskbarDpi != dpi)
+                if (ToastProfile.Compact)
                 {
-                    taskbarSpot = TaskbarPlacement.Resolve(info.Monitor, info.Work, dpi);
-                    taskbarSpotPinned = true; taskbarMonitor = monitor; taskbarDpi = dpi;
+                    TaskbarPlacement.RequestRefresh();
+                    // A background result must not move an ongoing copy sequence.
+                    if (!IsVisible || !taskbarSpotPinned || taskbarMonitor != monitor || taskbarDpi != dpi)
+                    {
+                        taskbarSpot = TaskbarPlacement.Resolve(info.Monitor, info.Work, dpi);
+                        taskbarSpotPinned = true; taskbarMonitor = monitor; taskbarDpi = dpi;
+                    }
+                    x = (int)Math.Round(taskbarSpot.X - 32 * scale);
+                    y = (int)Math.Round(taskbarSpot.Y - 32 * scale);
                 }
-                x = (int)Math.Round(taskbarSpot.X - 32 * scale);
-                y = (int)Math.Round(taskbarSpot.Y - 32 * scale);
 #endif
                 if (acrylic != null)
                 {

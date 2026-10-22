@@ -105,7 +105,7 @@ namespace CCCC
         internal BitmapSource Bitmap;
         internal Geometry Outline;
         internal int Dpi, Width, Height;
-        internal bool Dark, Acrylic;
+        internal bool Dark, Acrylic, Compact, TaskbarBlend;
         internal double BuildMilliseconds;
         internal int HighBufferBytes;
     }
@@ -117,7 +117,9 @@ namespace CCCC
         internal int Count { get { return current == null ? 0 : 1; } }
         internal BackgroundFrame Get(int dpi)
         {
-            if (current == null || current.Dpi != dpi || current.Dark != Themes.Current.Dark || current.Acrylic != Themes.UseAcrylic)
+            bool blend = ToastProfile.Compact && Themes.MaterialEnabled && Themes.Current.Transparent;
+            if (current == null || current.Dpi != dpi || current.Dark != Themes.Current.Dark || current.Acrylic != Themes.UseAcrylic ||
+                current.Compact != ToastProfile.Compact || current.TaskbarBlend != blend)
             {
                 BackgroundFrame replacement = CardBackgroundRenderer.Build(dpi);
                 current = replacement; BuildCount++;
@@ -128,11 +130,8 @@ namespace CCCC
 
     internal static class CardBackgroundRenderer
     {
-#if TASKBAR_EXPERIMENT
-        internal const int LogicalWidth = 289, LogicalHeight = 96;
-#else
-        internal const int LogicalWidth = 424, LogicalHeight = 144;
-#endif
+        internal static int LogicalWidth { get { return ToastProfile.Compact ? 289 : 424; } }
+        internal static int LogicalHeight { get { return ToastProfile.Compact ? 96 : 144; } }
         private const int Sampling = 2;
 
         internal static BackgroundFrame Build(int dpi)
@@ -154,10 +153,17 @@ namespace CCCC
             {
                 Color color = Themes.Current.Fill;
                 color.A = Themes.UseAcrylic ? (byte)Math.Round(255 * Themes.Current.Tint) : (byte)255;
+                if (ToastProfile.Compact && Themes.MaterialEnabled && Themes.Current.Transparent)
+                {
+                    // Let the existing taskbar material show through. No second
+                    // backdrop sampler, blur, grain, shadow or outlined card.
+                    color = Themes.Current.Dark ? Colors.White : Colors.Black;
+                    color.A = Themes.Current.Dark ? (byte)10 : (byte)6;
+                }
                 SolidColorBrush fill = new SolidColorBrush(color); fill.Freeze();
                 SolidColorBrush line = new SolidColorBrush((Color)ColorConverter.ConvertFromString(Themes.Current.Rim)); line.Freeze();
                 Pen pen = new Pen(line, 1); pen.Freeze();
-                draw.DrawGeometry(fill, pen, outline);
+                draw.DrawGeometry(fill, ToastProfile.Compact ? null : pen, outline);
             }
             RenderTargetBitmap high = new RenderTargetBitmap(highWidth, highHeight, 192, 192, PixelFormats.Pbgra32);
             high.Render(visual);
@@ -169,14 +175,16 @@ namespace CCCC
             // with 9 logical pixels of support and the existing 15% shadow opacity.
             // Running sums make each blur pass O(pixel count), independent of DPI.
             byte[] alpha = new byte[highWidth * highHeight], temporary = new byte[alpha.Length];
-            for (int i = 0; i < alpha.Length; i++) alpha[i] = (byte)Math.Min(255, Math.Round(body[i * 4 + 3] / (Themes.UseAcrylic ? Themes.Current.Tint : 1)));
+            if (!ToastProfile.Compact)
+                for (int i = 0; i < alpha.Length; i++) alpha[i] = (byte)Math.Min(255, Math.Round(body[i * 4 + 3] / (Themes.UseAcrylic ? Themes.Current.Tint : 1)));
             int radius = Math.Max(1, (int)Math.Round(3 * scale * Sampling - .5));
-            for (int pass = 0; pass < 3; pass++) BoxBlur(alpha, temporary, highWidth, highHeight, radius);
+            if (!ToastProfile.Compact)
+                for (int pass = 0; pass < 3; pass++) BoxBlur(alpha, temporary, highWidth, highHeight, radius);
             int offset = (int)Math.Round(3 / Math.Sqrt(2) * scale * Sampling);
             byte[] pixels = CompositeAndDownsample(body, alpha, highWidth, highHeight, offset);
             // 1.2% extra grain, cached with the background. Preserve premultiplied
             // alpha and avoid affecting the transparent shadow outside the card.
-            for (int y = margin + 2; Themes.UseAcrylic && y < height - margin - 2; y++)
+            for (int y = margin + 2; !ToastProfile.Compact && Themes.UseAcrylic && y < height - margin - 2; y++)
                 for (int x = margin + 2; x < width - margin - 2; x++)
                 {
                     int p = (y * width + x) * 4; if (pixels[p + 3] < 150) continue;
@@ -188,7 +196,8 @@ namespace CCCC
             bitmap.Freeze(); watch.Stop();
             return new BackgroundFrame { Bitmap = bitmap, Outline = outline, Dpi = dpi, Width = width,
                 Height = height, BuildMilliseconds = watch.Elapsed.TotalMilliseconds,
-                HighBufferBytes = body.Length, Dark = Themes.Current.Dark, Acrylic = Themes.UseAcrylic };
+                HighBufferBytes = body.Length, Dark = Themes.Current.Dark, Acrylic = Themes.UseAcrylic,
+                Compact = ToastProfile.Compact, TaskbarBlend = ToastProfile.Compact && Themes.MaterialEnabled && Themes.Current.Transparent };
         }
 
         private static void BoxBlur(byte[] values, byte[] temporary, int width, int height, int radius)
