@@ -3,7 +3,8 @@ param(
     [string]$OutputDirectory = (Join-Path $PSScriptRoot 'artifacts/build'),
     [switch]$CheckAnimation,
     [switch]$TaskbarExperiment = $true,
-    [switch]$CheckTaskbar
+    [switch]$CheckTaskbar,
+    [switch]$CheckQuality
 )
 $ErrorActionPreference = 'Stop'
 
@@ -58,9 +59,9 @@ finally { $writer.Dispose() }
 $sourceFolder = Join-Path $PSScriptRoot 'src/CCCC'
 $sources = @('Core.cs', 'Native.cs', 'Rendering.cs', 'CompositionWindow.cs', 'Acrylic.cs', 'Theme.cs',
     'NativeMenuTheme.cs', 'Motion.cs', 'Startup.cs', 'EmbeddedFonts.cs', 'TextPixelWorkspace.cs',
-    'SampledText.cs', 'Toast.cs', 'ToastProfile.cs', 'TaskbarPlacement.cs', 'App.cs') | ForEach-Object { Join-Path $sourceFolder $_ }
+    'SampledText.cs', 'Toast.cs', 'ToastProfile.cs', 'TaskbarPlacement.cs', 'Preferences.cs', 'App.cs') | ForEach-Object { Join-Path $sourceFolder $_ }
 $manifest = Join-Path $PSScriptRoot 'assets/app.manifest'
-$common = @('/nologo', '/optimize+', '/platform:x64', '/codepage:65001', ('/win32manifest:' + $manifest))
+$common = @('/nologo', '/optimize+', '/define:TRACE', '/platform:x64', '/codepage:65001', ('/win32manifest:' + $manifest))
 if ($TaskbarExperiment) { $common += '/define:TASKBAR_EXPERIMENT' }
 $arguments = $common + @('/target:winexe', ('/out:' + (Join-Path $output 'CCCC.exe')),
     ('/win32icon:' + (Join-Path $PSScriptRoot 'assets/CCCC.ico')),
@@ -68,6 +69,15 @@ $arguments = $common + @('/target:winexe', ('/out:' + (Join-Path $output 'CCCC.e
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'CCCC build failed.' }
 Write-Output ('Built ' + (Join-Path $output 'CCCC.exe'))
+
+if ($CheckQuality) {
+    $name = 'CCCC.QualityChecks'
+    $arguments = $common + @('/target:exe', ('/main:' + $name), ('/out:' + (Join-Path $output ($name + '.exe')))) + $referenceArguments + $sources + @((Join-Path $PSScriptRoot 'tests/QualityChecks.cs'))
+    & $compiler @arguments
+    if ($LASTEXITCODE -ne 0) { throw 'Quality checks compile failed.' }
+    & (Join-Path $output ($name + '.exe'))
+    if ($LASTEXITCODE -ne 0) { throw 'Quality checks failed.' }
+}
 
 if ($CheckTaskbar) {
     $name = 'CCCC.TaskbarChecks'

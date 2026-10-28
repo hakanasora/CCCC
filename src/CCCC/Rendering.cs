@@ -177,8 +177,9 @@ namespace CCCC
             // sigma=3 logical pixels with the existing 15% shadow opacity.
             // The compact light surface uses the separately selected weak shadow.
             // Running sums make each blur pass O(pixel count), independent of DPI.
-            byte[] alpha = new byte[highWidth * highHeight], temporary = new byte[alpha.Length];
             bool drawShadow = !ToastProfile.Compact || taskbarShadow > 0;
+            byte[] alpha = drawShadow ? new byte[highWidth * highHeight] : null;
+            byte[] temporary = drawShadow ? new byte[alpha.Length] : null;
             double coverageTint = taskbarBlend ? Themes.Current.TaskbarTint : (Themes.UseAcrylic ? Themes.Current.Tint : 1);
             if (drawShadow)
                 for (int i = 0; i < alpha.Length; i++) alpha[i] = (byte)Math.Min(255, Math.Round(body[i * 4 + 3] / coverageTint));
@@ -260,7 +261,7 @@ namespace CCCC
                             int highX = x * 2 + sx, highY = y * 2 + sy;
                             int index = (highY * width + highX) * 4;
                             int shadowX = highX - offsetX, shadowY = highY - offsetY;
-                            int shadowAlpha = shadowX >= 0 && shadowY >= 0 && shadowX < width && shadowY < height ?
+                            int shadowAlpha = shadowStrength > 0 && shadowX >= 0 && shadowY >= 0 && shadowX < width && shadowY < height ?
                                 (int)(shadow[shadowY * width + shadowX] * shadowStrength + .5) : 0;
                             int coverage = Math.Min(255, (int)Math.Round(body[index + 3] / coverageTint));
                             int inverse = 255 - coverage;

@@ -54,6 +54,7 @@ namespace CCCC
                         app.DispatcherUnhandledException += delegate(object sender, DispatcherUnhandledExceptionEventArgs e)
                         {
                             e.Handled = true;
+                            Trace.TraceError("CCCC dispatcher: {0} (0x{1:X8})", e.Exception.GetType().Name, e.Exception.HResult);
                             host.Fault();
                         };
                         host.Start();
@@ -61,55 +62,15 @@ namespace CCCC
                     }
                     return 0;
                 }
-                catch (Exception)
+                catch (Exception error)
                 {
+                    Trace.TraceError("CCCC startup: {0} (0x{1:X8})", error.GetType().Name, error.HResult);
                     MessageBox.Show("CCCC 无法启动复制检测。请确认程序运行在正常的 Windows 桌面会话中，再重新打开。",
                         "CCCC", MessageBoxButton.OK, MessageBoxImage.Information);
                     return 1;
                 }
                 finally { single.ReleaseMutex(); }
             }
-        }
-    }
-
-    internal sealed class Preferences
-    {
-        internal bool ShowPreview = true;
-        internal bool UseMaterial = true;
-        internal bool UseTaskbar = ToastProfile.IsExperiment;
-        private readonly string path;
-        internal Preferences() : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CCCC", ToastProfile.SettingsFile)) { }
-        internal Preferences(string path)
-        {
-            this.path = path;
-            try
-            {
-                if (File.Exists(path))
-                    foreach (string raw in File.ReadAllLines(path))
-                    {
-                        string line = raw.Trim();
-                        if (line == "preview=off") ShowPreview = false;
-                        else if (line == "preview=on") ShowPreview = true;
-                        else if (line == "material=off") UseMaterial = false;
-                        else if (line == "material=on") UseMaterial = true;
-                        else if (line == "layout=card") UseTaskbar = false;
-                        else if (line == "layout=taskbar") UseTaskbar = true;
-                    }
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
-        internal void Save()
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, (ShowPreview ? "preview=on" : "preview=off") + Environment.NewLine +
-                    (UseMaterial ? "material=on" : "material=off") + Environment.NewLine +
-                    (ToastProfile.IsExperiment ? (UseTaskbar ? "layout=taskbar" : "layout=card") + Environment.NewLine : ""));
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
         }
     }
 
@@ -185,7 +146,7 @@ namespace CCCC
             {
                 preferences.ShowPreview = !preferences.ShowPreview;
                 previewItem.Checked = preferences.ShowPreview;
-                preferences.Save();
+                SavePreferences();
                 toast.HideAndClear();
                 Status(preferences.ShowPreview ? "内容预览已开启" : "内容预览已隐藏",
                     preferences.ShowPreview ? "复制后显示一小段内容" : "复制后仅显示内容类型和次数");
@@ -195,7 +156,7 @@ namespace CCCC
             {
                 preferences.UseMaterial = !preferences.UseMaterial;
                 materialItem.Checked = preferences.UseMaterial;
-                preferences.Save();
+                SavePreferences();
                 toast.SetMaterialEnabled(preferences.UseMaterial);
                 Status(preferences.UseMaterial ? "高级材质已开启" : "高级材质已关闭",
                     preferences.UseMaterial ? (ToastProfile.Compact ? "借用任务栏背景，不叠加额外模糊" : "系统允许时显示 Acrylic 材质") : "使用纯色背景，保留文字与动画");
@@ -254,6 +215,12 @@ namespace CCCC
         private static bool StartupSettingError(Exception error)
         { return error is IOException || error is UnauthorizedAccessException || error is SecurityException || error is ArgumentException; }
 
+        private void SavePreferences()
+        {
+            if (!preferences.Save() && tray != null)
+                tray.ShowBalloonTip(5000, "设置未能保存", "本次选择仍然生效，重启后可能恢复原设置。", Forms.ToolTipIcon.Warning);
+        }
+
         private void RefreshLayoutItems()
         {
             previewItem.Enabled = !ToastProfile.Compact;
@@ -276,10 +243,11 @@ namespace CCCC
             // Close the old layout and its material before changing the shared
             // profile. Pending clipboard completions belong to the old epoch.
             generation++;
+            keys.Reset();
             engine.Reset(Native.GetClipboardSequenceNumber());
             deadlineTimer.Stop();
             toast = ReplaceLayout(toast, compact, preferences.UseMaterial);
-            preferences.UseTaskbar = compact; preferences.Save();
+            preferences.UseTaskbar = compact; SavePreferences();
             if (compact) TaskbarPlacement.RequestRefresh();
             RefreshLayoutItems(); ApplyMenuTheme();
             Status(compact ? "已切换任务栏单行" : "已切换普通卡片", "复制反馈与动画保持不变");
@@ -398,6 +366,7 @@ namespace CCCC
         private void SetPaused(bool value)
         {
             paused = value;
+            keys.Reset();
             generation++;
             engine.Reset(Native.GetClipboardSequenceNumber());
             pauseItem.Checked = paused;

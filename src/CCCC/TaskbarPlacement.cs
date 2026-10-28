@@ -1,6 +1,7 @@
 #if TASKBAR_EXPERIMENT
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
@@ -50,7 +51,11 @@ namespace CCCC
             {
                 Snapshot result = null;
                 try { result = Probe(); }
-                catch (Exception) { /* Missing/inaccessible Shell provider: fallback. */ }
+                catch (Exception error)
+                {
+                    // No window names, clipboard content or provider messages.
+                    Trace.TraceError("CCCC taskbar probe: {0} (0x{1:X8})", error.GetType().Name, error.HResult);
+                }
                 finally
                 {
                     lock (Gate)

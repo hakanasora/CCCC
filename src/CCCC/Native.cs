@@ -191,51 +191,72 @@ namespace CCCC
     internal sealed class ClipboardWorker : IDisposable
     {
         private readonly object gate = new object();
-        private readonly AutoResetEvent wake = new AutoResetEvent(false);
+        private readonly AutoResetEvent wake;
         private readonly IntPtr hwnd;
         private readonly Action<ReadRequest, ClipboardSnapshot> complete;
+        private readonly Thread thread;
         private ReadRequest latest;
         private bool stopped;
         internal ClipboardWorker(IntPtr hwnd, Action<ReadRequest, ClipboardSnapshot> complete)
         {
+            if (complete == null) throw new ArgumentNullException("complete");
+            wake = new AutoResetEvent(false);
             this.hwnd = hwnd; this.complete = complete;
-            Thread thread = new Thread(Work) { IsBackground = true, Name = "CCCC clipboard reader" };
+            thread = new Thread(Work) { IsBackground = true, Name = "CCCC clipboard reader" };
             thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
+            try { thread.Start(); }
+            catch { wake.Dispose(); throw; }
         }
         internal void Enqueue(ReadRequest request)
         {
+            if (request == null) throw new ArgumentNullException("request");
             lock (gate) { if (stopped) return; latest = request; wake.Set(); }
         }
         private void Work()
         {
-            for (;;)
+            try
             {
-                wake.WaitOne();
-                ReadRequest request;
-                lock (gate) { if (stopped) return; request = latest; latest = null; }
-                if (request == null) continue;
-                ClipboardSnapshot result = null;
                 int[] delays = { 0, 40, 80, 160, 240, 320, 400 };
-                foreach (int delay in delays)
+                for (;;)
                 {
-                    if (delay > 0) Thread.Sleep(delay);
-                    lock (gate) { if (stopped) return; if (latest != null) break; }
-                    if (Native.Now - request.EventTime >= FeedbackEngine.ConfirmMilliseconds ||
-                        Native.GetClipboardSequenceNumber() != request.Sequence) break;
-                    try { result = ClipboardReader.Read(hwnd, request.Sequence); }
-                    catch (Exception) { result = null; }
-                    if (result != null) break;
+                    ReadRequest request;
+                    lock (gate)
+                    {
+                        if (stopped) return;
+                        request = latest; latest = null;
+                        if (request != null) wake.Reset();
+                    }
+                    if (request == null) { wake.WaitOne(); continue; }
+                    ClipboardSnapshot result = null;
+                    foreach (int delay in delays)
+                    {
+                        if (delay > 0 && wake.WaitOne(delay)) break;
+                        lock (gate) { if (stopped) return; if (latest != null) break; }
+                        if (Native.Now - request.EventTime >= FeedbackEngine.ConfirmMilliseconds ||
+                            Native.GetClipboardSequenceNumber() != request.Sequence) break;
+                        try { result = ClipboardReader.Read(hwnd, request.Sequence); }
+                        catch (Exception error)
+                        {
+                            Trace.TraceError("CCCC clipboard read: {0} (0x{1:X8})", error.GetType().Name, error.HResult);
+                            result = null;
+                        }
+                        if (result != null) break;
+                    }
+                    lock (gate) { if (stopped) return; }
+                    if (result != null && Native.Now - request.EventTime < FeedbackEngine.ConfirmMilliseconds)
+                        complete(request, result);
                 }
-                if (result != null && Native.Now - request.EventTime < FeedbackEngine.ConfirmMilliseconds)
-                    complete(request, result);
+            }
+            finally
+            {
+                lock (gate) { stopped = true; latest = null; wake.Dispose(); }
             }
         }
         public void Dispose()
         {
-            lock (gate) { stopped = true; latest = null; wake.Set(); }
+            lock (gate) { if (stopped) return; stopped = true; latest = null; wake.Set(); }
             // A background read may be waiting on a source app's delayed rendering.
-            // Do not join it or close the event while the worker can still use it.
+            // Do not join it on the UI thread. Work owns and closes the event on exit.
         }
     }
 }
