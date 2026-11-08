@@ -305,7 +305,7 @@ namespace CCCC
             bool repeat = count >= 2 && IsVisible && Current != null && Current.Kind != FeedbackKind.Status;
             deferredPulse = repeat;
             if (!repeat) pendingHit = false;
-            if (!IsVisible || pendingEntrance || Current == null) return;
+            if (!IsVisible || pendingEntrance || Current == null || Current.Kind == FeedbackKind.Status) return;
             deferredPulse = false;
             revision++;
             // Signal title motion before content layout, positioning, or any
@@ -386,9 +386,10 @@ namespace CCCC
             revision++;
             hideTimer.Stop();
             bool alreadyVisible = IsVisible && !pendingEntrance;
+            bool animateTitle = alreadyVisible && !(Current != null && Current.Kind == FeedbackKind.Status && value.Kind != FeedbackKind.Status);
             if (!alreadyVisible) { Opacity = 0; windowFade.Reset(0); }
             SetContent(value, preview);
-            UpdateTitle(value.Title, alreadyVisible);
+            UpdateTitle(value.Title, animateTitle);
             // Position and build for the real target DPI while the new card is hidden.
             Position(value.Foreground);
             if (!alreadyVisible)
