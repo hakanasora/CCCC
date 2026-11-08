@@ -99,13 +99,53 @@ namespace CCCC
             }
             finally { toast.Close(); }
         }
+        private static void StatusHandoff()
+        {
+            Themes.Current = new Appearance { Transparent = false }; Themes.MaterialAvailable = false;
+            ToastWindow toast = new ToastWindow(false);
+            Field<Grid>(toast, "surface").Opacity = 0;
+            try
+            {
+                FeedbackKind[] kinds = { FeedbackKind.Confirmed, FeedbackKind.Retained, FeedbackKind.Unconfirmed, FeedbackKind.Updated };
+                foreach (FeedbackKind kind in kinds)
+                {
+                    toast.HideAndClear();
+                    toast.Present(new Feedback { Kind = FeedbackKind.Status, Title = "高级材质已开启", Preview = "设置提示" }, true);
+                    Frame(toast);
+                    for (int count = 1; count <= 3; count++)
+                    {
+                        toast.CopyPressed(count, IntPtr.Zero, true);
+                        Frame(toast);
+                        Check(toast.Current.Kind == FeedbackKind.Status && toast.Current.Count == 0 &&
+                            Field<SampledText>(toast, "title").Text == "高级材质已开启" &&
+                            Field<SampledText>(toast, "detail").Text == "设置提示" &&
+                            Field<Border>(toast, "counter").Visibility == Visibility.Hidden && !toast.TestPendingHit && !toast.TestMotionRunning,
+                            "statusUnchangedWhileWaitingForCopyResult count=" + count + " kind=" + kind +
+                            " actualCount=" + toast.Current.Count + " title=" + Field<SampledText>(toast, "title").Text);
+                    }
+                    Feedback result = new Feedback { Kind = kind, Count = 3, Title = "复制结果 " + kind, Preview = "真实预览" };
+                    toast.Present(result, true);
+                    Check(toast.Current.Kind == kind && toast.Current.Count == 3 &&
+                        Field<SampledText>(toast, "title").Text == result.Title &&
+                        Field<SampledText>(toast, "detail").Text == result.Preview &&
+                        Field<SampledText>(toast, "times").Text == "×3" &&
+                        Field<Border>(toast, "counter").Visibility == Visibility.Visible && !toast.TestPendingHit,
+                        "copyResultImmediatelyReplacesStatus kind=" + kind + " title=" + Field<SampledText>(toast, "title").Text);
+                    Frame(toast);
+                    Check(!toast.TestMotionRunning, "firstCopyResultOverStatusDoesNotPulse kind=" + kind);
+                    toast.CopyPressed(4, IntPtr.Zero, true);
+                    Check(toast.TestPendingHit && toast.Current.Count == 4, "subsequentCopyPulses kind=" + kind);
+                }
+            }
+            finally { toast.Close(); }
+        }
         [STAThread]
         private static int Main(string[] args)
         {
             Application app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             try
             {
-                Fade(); EntryAndRepeat(); results.Add("TOTAL," + passed);
+                Fade(); EntryAndRepeat(); StatusHandoff(); results.Add("TOTAL," + passed);
                 File.WriteAllLines(Path.Combine(args[0], "animation-check-results.csv"), results.ToArray());
                 Console.WriteLine("Animation checks passed: " + passed); return 0;
             }
