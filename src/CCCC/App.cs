@@ -20,9 +20,9 @@ using Forms = System.Windows.Forms;
 [assembly: AssemblyDescription("Windows 复制确认与连按反馈工具")]
 [assembly: AssemblyCompany("CCCC")]
 [assembly: AssemblyProduct("CCCC")]
-[assembly: AssemblyVersion("2.4.8.0")]
-[assembly: AssemblyFileVersion("2.4.8.0")]
-[assembly: AssemblyInformationalVersion("2.4.8-preview.1")]
+[assembly: AssemblyVersion("2.4.9.0")]
+[assembly: AssemblyFileVersion("2.4.9.0")]
+[assembly: AssemblyInformationalVersion("2.4.9-preview.1")]
 [assembly: TargetFramework(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
 
 namespace CCCC

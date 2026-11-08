@@ -43,9 +43,9 @@ CCCC 提供浅色和深色外观，使用连续圆角、Acrylic 背景和淡入�
 
 ## 开始使用
 
-可选择 [v2.4.6 稳定版](https://github.com/hakanasora/CCCC/releases/tag/v2.4.6)，或体验 [v2.4.7-preview.1 任务栏预览版](https://github.com/hakanasora/CCCC/releases/tag/v2.4.7-preview.1)。自行构建的方法见[构建指南](docs/building.md)。
+可选择 [v2.4.6 稳定版](https://github.com/hakanasora/CCCC/releases/tag/v2.4.6)，或在[发行页面](https://github.com/hakanasora/CCCC/releases)查看预览版。自行构建的方法见[构建指南](docs/building.md)。
 
-预览版可在托盘菜单的“提示样式”中切换普通卡片与任务栏单行提示。任务栏 UI 已确定，空位检测和天气、左侧按钮、自动隐藏、多屏等边缘情况仍在完善，可能出现遮挡或回退到任务栏上方；目前不建议替代稳定版用于长期使用。详见[预览版说明](docs/releases/v2.4.7-preview.1.md)。
+预览版可在托盘菜单的“提示样式”中切换普通卡片与任务栏单行提示。任务栏 UI 已确定，空位检测和天气、左侧按钮、自动隐藏、多屏等边缘情况仍在完善，可能出现遮挡或回退到任务栏上方；目前不建议替代稳定版用于长期使用。详见[预览版说明](docs/releases/v2.4.9-preview.1.md)。
 
 构建后运行 `CCCC.exe`，然后照常复制即可。右键托盘图标，可以调整以下选项：
 
