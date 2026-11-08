@@ -57,7 +57,7 @@ try {
 finally { $writer.Dispose() }
 
 $sourceFolder = Join-Path $PSScriptRoot 'src/CCCC'
-$sources = @('Core.cs', 'Native.cs', 'Rendering.cs', 'CompositionWindow.cs', 'Acrylic.cs', 'Theme.cs',
+$sources = @('Core.cs', 'Native.cs', 'Rendering.cs', 'CompositionWindow.cs', 'CompositionBitmap.cs', 'Acrylic.cs', 'Theme.cs',
     'NativeMenuTheme.cs', 'Motion.cs', 'Startup.cs', 'EmbeddedFonts.cs', 'TextPixelWorkspace.cs',
     'SampledText.cs', 'Toast.cs', 'ToastProfile.cs', 'TaskbarPlacement.cs', 'Preferences.cs', 'App.cs') | ForEach-Object { Join-Path $sourceFolder $_ }
 $manifest = Join-Path $PSScriptRoot 'assets/app.manifest'

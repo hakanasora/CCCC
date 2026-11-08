@@ -251,6 +251,7 @@ namespace CCCC
         private void ReleaseMaterial()
         {
             AcrylicHost old = acrylic; acrylic = null; Themes.MaterialAvailable = false;
+            background.Visibility = Visibility.Visible;
             if (old == null) return;
             try { old.Dispose(); }
             catch (Exception error) { MaterialFailure = error.GetType().Name + " (0x" + error.HResult.ToString("X8") + ")"; }
@@ -274,6 +275,7 @@ namespace CCCC
             Console.WriteLine("MATERIAL_FAULT=" + error);
 #endif
             Themes.MaterialAvailable = false;
+            background.Visibility = Visibility.Visible;
             MaterialFailure = error.GetType().Name + " (0x" + error.HResult.ToString("X8") + ")";
             if (acrylic != null) { try { acrylic.Dispose(); } catch (Exception) { } acrylic = null; }
         }
@@ -414,6 +416,12 @@ namespace CCCC
         {
             LayoutCounter();
             BackgroundFrame frame = backgrounds.Get(dpi);
+            background.Visibility = Visibility.Visible;
+            if (HasNativeMaterial)
+            {
+                try { acrylic.SetBackground(frame); background.Visibility = Visibility.Hidden; }
+                catch (Exception error) { MaterialFault(error); frame = backgrounds.Get(dpi); }
+            }
             background.Source = frame.Bitmap;
             // WPF device scaling * this logical extent equals exact bitmap pixels.
             // This avoids an extra image resample even at fractional display scales.
@@ -460,7 +468,6 @@ namespace CCCC
                     try
                     {
                         acrylic.Position(x, y, width, height, dpi);
-                        if (HasNativeMaterial && IsVisible) acrylic.Show(); else acrylic.Hide();
                     }
                     catch (Exception error) { MaterialFault(error); }
                 }
@@ -470,6 +477,11 @@ namespace CCCC
                     Native.SetWindowPos(handle, IntPtr.Zero, x, y, width, height, 0x0010 | 0x0200 | 0x0004);
                 dpi = EffectiveDpi();
                 ApplyBackground(dpi, VisualTreeHelper.GetDpi(this).DpiScaleX);
+                if (acrylic != null)
+                {
+                    try { if (HasNativeMaterial && IsVisible) acrylic.Show(); else acrylic.Hide(); }
+                    catch (Exception error) { MaterialFault(error); ApplyBackground(dpi, VisualTreeHelper.GetDpi(this).DpiScaleX); }
+                }
             }
             finally { positioning = false; }
         }

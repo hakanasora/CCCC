@@ -29,7 +29,9 @@ namespace CCCC
         private readonly IntPtr overlay;
         private readonly Compositor compositor;
         private readonly DesktopWindowTarget target;
-        private readonly SpriteVisual visual;
+        private readonly Windows.UI.Composition.ContainerVisual root;
+        private readonly SpriteVisual visual, backgroundVisual;
+        private readonly CompositionBitmap background;
         private readonly CompositionBackdropBrush backdrop;
         private CompositionEffectBrush blurBrush;
         private CompositionEffectFactory blurFactory;
@@ -59,10 +61,16 @@ namespace CCCC
                 Marshal.ThrowExceptionForHR(DwmSetWindowAttribute(created.Handle, 17, ref enabled, 4));
                 compositor = new Compositor();
                 ((IDesktopInterop)(object)compositor).CreateDesktopWindowTarget(created.Handle, true, out target);
+                root = compositor.CreateContainerVisual();
+                root.Opacity = 0;
                 visual = compositor.CreateSpriteVisual();
-                visual.Opacity = 0;
+                backgroundVisual = compositor.CreateSpriteVisual();
+                background = new CompositionBitmap(compositor);
+                backgroundVisual.Brush = background.Brush;
+                root.Children.InsertAtBottom(visual);
+                root.Children.InsertAtTop(backgroundVisual);
                 backdrop = compositor.CreateHostBackdropBrush();
-                target.Root = visual;
+                target.Root = root;
                 source = created;
                 // Owned windows are always above their owner. This prevents the
                 // material from ever sampling or covering the tinted text HWND.
@@ -72,7 +80,11 @@ namespace CCCC
             {
                 if (created != null && overlay != IntPtr.Zero && Native.IsWindow(overlay) && Native.GetWindow(overlay, 4) == created.Handle)
                     Native.SetOwner(overlay, IntPtr.Zero);
-                if (visual != null) visual.Dispose(); if (target != null) target.Dispose();
+                if (target != null) target.Root = null;
+                if (backgroundVisual != null) { backgroundVisual.Brush = null; backgroundVisual.Dispose(); }
+                if (background != null) background.Dispose();
+                if (visual != null) visual.Dispose(); if (root != null) root.Dispose();
+                if (target != null) target.Dispose();
                 if (backdrop != null) backdrop.Dispose();
                 if (compositor != null) compositor.Dispose(); if (created != null) created.Dispose(); throw;
             }
@@ -120,8 +132,8 @@ namespace CCCC
                 if (oldClip != null) oldClip.Dispose(); if (oldPath != null) oldPath.Dispose();
                 if (oldGeometry != null) oldGeometry.Dispose();
                 width = pixelWidth; height = pixelHeight; dpi = targetDpi;
-                visual.Size = new Vector2(width, height);
-                visual.CenterPoint = new Vector3(width / 2f, height / 2f, 0);
+                root.Size = visual.Size = backgroundVisual.Size = new Vector2(width, height);
+                root.CenterPoint = new Vector3(width / 2f, height / 2f, 0);
             }
             if (move || resize)
             {
@@ -130,11 +142,16 @@ namespace CCCC
                 left = x; top = y;
             }
         }
+        internal void SetBackground(BackgroundFrame frame)
+        {
+            if (disposed) throw new ObjectDisposedException("AcrylicHost");
+            background.SetFrame(frame);
+        }
         internal void SetMotion(double scale, double opacity)
         {
             if (disposed) return;
-            if (lastScale != scale) { visual.Scale = new Vector3((float)scale, (float)scale, 1); lastScale = scale; }
-            if (lastOpacity != opacity) { visual.Opacity = (float)opacity; lastOpacity = opacity; }
+            if (lastScale != scale) { root.Scale = new Vector3((float)scale, (float)scale, 1); lastScale = scale; }
+            if (lastOpacity != opacity) { root.Opacity = (float)opacity; lastOpacity = opacity; }
         }
         internal void Show()
         {
@@ -157,12 +174,23 @@ namespace CCCC
             if (disposed) return; Hide(); disposed = true;
             if (overlay != IntPtr.Zero && Native.IsWindow(overlay) && Native.GetWindow(overlay, 4) == Handle)
                 Native.SetOwner(overlay, IntPtr.Zero);
-            target.Root = null; visual.Clip = null; visual.Brush = null;
-            visual.Dispose(); target.Dispose();
-            if (blurBrush != null) blurBrush.Dispose(); if (blurFactory != null) blurFactory.Dispose();
-            if (clip != null) clip.Dispose(); if (clipPath != null) clipPath.Dispose();
-            if (geometry != null) geometry.Dispose();
-            backdrop.Dispose(); compositor.Dispose(); source.Dispose();
+            try
+            {
+                target.Root = null; visual.Clip = null; visual.Brush = null; backgroundVisual.Brush = null;
+                root.Children.RemoveAll();
+            }
+            finally
+            {
+                try { background.Dispose(); }
+                finally
+                {
+                    backgroundVisual.Dispose(); visual.Dispose(); root.Dispose(); target.Dispose();
+                    if (blurBrush != null) blurBrush.Dispose(); if (blurFactory != null) blurFactory.Dispose();
+                    if (clip != null) clip.Dispose(); if (clipPath != null) clipPath.Dispose();
+                    if (geometry != null) geometry.Dispose();
+                    backdrop.Dispose(); compositor.Dispose(); source.Dispose();
+                }
+            }
         }
     }
 
