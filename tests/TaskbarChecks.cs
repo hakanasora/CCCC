@@ -89,6 +89,14 @@ namespace CCCC
                     BackgroundFrame opaque = cache.Get(96);
                     opaque.Bitmap.CopyPixels(new Int32Rect(100, 48, 1, 1), center, 4, 0);
                     Check(center[3] == 255 && cache.BuildCount == 2, "blend toggle invalidates background cache");
+                    Themes.MaterialEnabled = true;
+                    BackgroundFrame standalone = cache.Get(96, true);
+                    standalone.Bitmap.CopyPixels(new Int32Rect(100, 48, 1, 1), center, 4, 0);
+                    Check(!standalone.TaskbarBlend && center[3] == 255, "freely positioned compact popup is readable");
+                    Check(Object.ReferenceEquals(standalone, cache.Get(96, true)), "standalone background cache reused");
+                    BackgroundFrame restoredBlend = cache.Get(96);
+                    restoredBlend.Bitmap.CopyPixels(new Int32Rect(100, 48, 1, 1), center, 4, 0);
+                    Check(restoredBlend.TaskbarBlend && center[3] == (dark ? 15 : 204), "automatic taskbar transparency restored");
                 }
                 toast.Close(); app.Shutdown();
                 string settings = Path.Combine(Path.GetTempPath(), "CCCC-taskbar-check-" + Guid.NewGuid().ToString("N"), "settings.txt");
@@ -99,6 +107,11 @@ namespace CCCC
                     Check(!loaded.UseTaskbar && !loaded.UseMaterial && loaded.ShowPreview, "card choice saved without losing preview preference");
                     saved.UseTaskbar = true; saved.Save();
                     Check(new Preferences(settings).UseTaskbar, "taskbar choice saved");
+                    saved.Position = ToastPosition.Custom; saved.HasCustomPosition = true;
+                    saved.CustomX = .25; saved.CustomY = .75; saved.CustomMonitor = "test-display"; saved.Save();
+                    saved.UseTaskbar = false; saved.Save(); loaded = new Preferences(settings);
+                    Check(!loaded.UseTaskbar && loaded.Position == ToastPosition.Custom && loaded.HasCustomPosition &&
+                        loaded.CustomX == .25 && loaded.CustomY == .75 && loaded.CustomMonitor == "test-display", "layout switch preserves custom position");
                 }
                 finally { if (File.Exists(settings)) File.Delete(settings); Directory.Delete(Path.GetDirectoryName(settings)); }
                 WindowFade fade = new WindowFade();

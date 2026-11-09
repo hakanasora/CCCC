@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -43,6 +44,11 @@ namespace CCCC
         private IntPtr hwnd, anchorWindow;
         private int revision;
         private bool positioning, refreshQueued, closed;
+        private readonly Preferences placement;
+        internal bool IsPositionEditing { get; private set; }
+        private bool StandaloneCompact { get { return ToastProfile.Compact && (IsPositionEditing ||
+            (placement != null && placement.Position != ToastPosition.Automatic)); } }
+        internal event Action<bool> PositionEditFinished;
 #if TASKBAR_EXPERIMENT
         private bool taskbarSpotPinned;
         private Point taskbarSpot;
@@ -83,8 +89,10 @@ namespace CCCC
         }
 
         internal ToastWindow() : this(Themes.MaterialEnabled) { }
-        internal ToastWindow(bool materialEnabled)
+        internal ToastWindow(bool materialEnabled) : this(materialEnabled, null) { }
+        internal ToastWindow(bool materialEnabled, Preferences placement)
         {
+            this.placement = placement;
             Themes.MaterialEnabled = materialEnabled;
             if (ToastProfile.Compact) Themes.MaterialAvailable = false;
             Title = "CCCC " + ToastProfile.Label + " · 复制提示";
@@ -175,7 +183,7 @@ namespace CCCC
                 HwndSource.FromHwnd(hwnd).AddHook(delegate(IntPtr window, int message, IntPtr w, IntPtr l, ref bool handled)
                 {
                     if (message == 0x21) { handled = true; return new IntPtr(3); }
-                    if (message == 0x84) { handled = true; return new IntPtr(-1); }
+                    if (message == 0x84) { handled = true; return new IntPtr(IsPositionEditing ? 1 : -1); }
 #if TASKBAR_EXPERIMENT
                     if (message == 0x007E || message == 0x001A || message == TaskbarPlacement.RecreatedMessage)
                     { TaskbarPlacement.Invalidate(); taskbarSpotPinned = false; }
@@ -185,8 +193,26 @@ namespace CCCC
                     return IntPtr.Zero;
                 });
             };
+            MouseLeftButtonDown += delegate(object sender, MouseButtonEventArgs e)
+            {
+                if (!IsPositionEditing) return;
+                e.Handled = true;
+                try { DragMove(); }
+                catch (InvalidOperationException) { EndPositionEdit(false); return; }
+                if (IsPositionEditing) EndPositionEdit(true);
+            };
+            MouseRightButtonDown += delegate(object sender, MouseButtonEventArgs e)
+            {
+                if (!IsPositionEditing) return;
+                e.Handled = true; EndPositionEdit(false);
+            };
+            LocationChanged += delegate
+            {
+                if (IsPositionEditing && hwnd != IntPtr.Zero) Position(anchorWindow);
+            };
             Closed += delegate
             {
+                IsPositionEditing = false;
                 closed = true; pendingEntrance = pendingHit = deferredPulse = false;
                 revision++; hideTimer.Stop(); motion.Stop(); windowFade.Reset(0); StopFrames();
                 foreach (SampledText text in glyphs) text.ClearCache();
@@ -210,7 +236,7 @@ namespace CCCC
             bool neutral = value.Kind == FeedbackKind.Updated || value.Kind == FeedbackKind.Retained;
             Appearance theme = Themes.Current;
             title.Foreground = Brush(theme.Text); detail.Foreground = Brush(theme.Detail);
-            counter.Background = Brush(ToastProfile.Compact && Themes.MaterialEnabled && theme.Transparent ?
+            counter.Background = Brush(ToastProfile.Compact && !StandaloneCompact && Themes.MaterialEnabled && theme.Transparent ?
                 (theme.Dark ? "#18FFFFFF" : "#10000000") : theme.Counter);
             times.Foreground = overflow.Foreground = Brush(theme.CountText);
             checkMark.Visibility = warning || neutral ? Visibility.Hidden : Visibility.Visible;
@@ -295,7 +321,7 @@ namespace CCCC
 
         internal void CopyPressed(int count, IntPtr foreground, bool preview, long pressedAt)
         {
-            if (closed) return;
+            if (closed || IsPositionEditing) return;
             lastCopySignal = Native.Now;
             lastCopyQueueMilliseconds = Math.Max(0, lastCopySignal - pressedAt);
             // Keep the last actual result steady while awaiting the new one.
@@ -379,7 +405,7 @@ namespace CCCC
 
         internal void Present(Feedback value, bool preview)
         {
-            if (value == null || closed) return;
+            if (value == null || closed || IsPositionEditing) return;
             bool playHit = value.Kind != FeedbackKind.Status && value.Count >= 2 && (pendingHit || deferredPulse);
             if (!playHit) pendingHit = false;
             deferredPulse = false;
@@ -416,12 +442,12 @@ namespace CCCC
         private void ApplyBackground(int dpi, double visualScale)
         {
             LayoutCounter();
-            BackgroundFrame frame = backgrounds.Get(dpi);
+            BackgroundFrame frame = backgrounds.Get(dpi, StandaloneCompact);
             background.Visibility = Visibility.Visible;
-            if (HasNativeMaterial)
+            if (HasNativeMaterial && !IsPositionEditing)
             {
                 try { acrylic.SetBackground(frame); background.Visibility = Visibility.Hidden; }
-                catch (Exception error) { MaterialFault(error); frame = backgrounds.Get(dpi); }
+                catch (Exception error) { MaterialFault(error); frame = backgrounds.Get(dpi, StandaloneCompact); }
             }
             background.Source = frame.Bitmap;
             // WPF device scaling * this logical extent equals exact bitmap pixels.
@@ -439,19 +465,25 @@ namespace CCCC
             try
             {
                 IntPtr handle = Handle;
-                IntPtr monitor = Native.MonitorFromWindow(foreground, 2);
+                IntPtr monitor = IsPositionEditing ? Native.MonitorFromWindow(handle, 2) :
+                    placement == null ? Native.MonitorFromWindow(foreground, 2) : ToastPlacement.Monitor(placement, foreground);
                 Native.MonitorInfo info = new Native.MonitorInfo { Size = (uint)Marshal.SizeOf(typeof(Native.MonitorInfo)) };
                 if (!Native.GetMonitorInfo(monitor, ref info)) return;
-                if (Native.MonitorFromWindow(handle, 2) != monitor)
+                if (!IsPositionEditing && Native.MonitorFromWindow(handle, 2) != monitor)
                     Native.SetWindowPos(handle, IntPtr.Zero, info.Work.Left + 4, info.Work.Top + 4, 0, 0,
                         0x0001 | 0x0004 | 0x0010 | 0x0200);
                 int dpi = EffectiveDpi();
                 double scale = dpi / 96.0;
                 int width = (int)Math.Round(OuterWidth * scale), height = (int)Math.Round(OuterHeight * scale);
-                int x = info.Work.Left + (int)Math.Round(-12 * scale);
-                int y = info.Work.Bottom - height + (int)Math.Round(12 * scale);
+                ToastPosition selected = placement == null ? ToastPosition.Automatic : placement.Position;
+                Point spot = ToastPlacement.Resolve(selected, ToastPlacement.WorkArea(info), width, height, scale,
+                    placement == null ? 0 : placement.CustomX, placement == null ? 0 : placement.CustomY);
+                int x = (int)spot.X, y = (int)spot.Y;
+                Native.Rect editingBounds;
+                if (IsPositionEditing && Native.GetWindowRect(handle, out editingBounds))
+                { x = editingBounds.Left; y = editingBounds.Top; }
 #if TASKBAR_EXPERIMENT
-                if (ToastProfile.Compact)
+                if (ToastProfile.Compact && selected == ToastPosition.Automatic && !IsPositionEditing)
                 {
                     TaskbarPlacement.RequestRefresh();
                     // A background result must not move an ongoing copy sequence.
@@ -480,7 +512,7 @@ namespace CCCC
                 ApplyBackground(dpi, VisualTreeHelper.GetDpi(this).DpiScaleX);
                 if (acrylic != null)
                 {
-                    try { if (HasNativeMaterial && IsVisible) acrylic.Show(); else acrylic.Hide(); }
+                    try { if (HasNativeMaterial && IsVisible && !IsPositionEditing) acrylic.Show(); else acrylic.Hide(); }
                     catch (Exception error) { MaterialFault(error); ApplyBackground(dpi, VisualTreeHelper.GetDpi(this).DpiScaleX); }
                 }
             }
@@ -553,6 +585,34 @@ namespace CCCC
             foreach (SampledText text in glyphs)
                 text.Moving = motion.Running;
             if (!motion.Running && !windowFade.Running && !titleTransition.Running && !pendingHit && !pendingEntrance) StopFrames();
+        }
+
+        internal void BeginPositionEdit()
+        {
+            if (closed || IsPositionEditing) return;
+            HideAndClear();
+            Present(new Feedback { Kind = FeedbackKind.Status,
+                Title = ToastProfile.Compact ? "拖动定位 · 右键取消" : "拖动调整弹窗位置",
+                Preview = "松开鼠标保存 · 右键取消", Foreground = Native.GetForegroundWindow() }, true);
+            hideTimer.Stop(); pendingEntrance = pendingHit = false;
+            windowFade.Reset(1); Opacity = 1; StopFrames();
+            IsPositionEditing = true; IsHitTestVisible = true; Cursor = Cursors.SizeAll;
+            surface.Background = Brushes.Transparent;
+            Native.SetExStyle(hwnd, Native.ExStyle(hwnd) & ~0x00000020L);
+            // The editing card needs pixels in its own HWND for layered-window
+            // hit testing; the passive Acrylic window cannot receive the drag.
+            Position(anchorWindow);
+        }
+
+        internal void EndPositionEdit(bool save)
+        {
+            if (!IsPositionEditing) return;
+            IsPositionEditing = false; IsHitTestVisible = false; Cursor = null;
+            surface.Background = null;
+            Native.MakePassive(hwnd);
+            HideAndClear();
+            Action<bool> finished = PositionEditFinished;
+            if (finished != null) finished(save);
         }
 
         internal void HideAndClear()

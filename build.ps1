@@ -4,7 +4,8 @@ param(
     [switch]$CheckAnimation,
     [switch]$TaskbarExperiment = $true,
     [switch]$CheckTaskbar,
-    [switch]$CheckQuality
+    [switch]$CheckQuality,
+    [switch]$CheckPosition
 )
 $ErrorActionPreference = 'Stop'
 
@@ -59,7 +60,7 @@ finally { $writer.Dispose() }
 $sourceFolder = Join-Path $PSScriptRoot 'src/CCCC'
 $sources = @('Core.cs', 'Native.cs', 'Rendering.cs', 'CompositionWindow.cs', 'CompositionBitmap.cs', 'Acrylic.cs', 'Theme.cs',
     'NativeMenuTheme.cs', 'Motion.cs', 'Startup.cs', 'EmbeddedFonts.cs', 'TextPixelWorkspace.cs',
-    'SampledText.cs', 'Toast.cs', 'ToastProfile.cs', 'TaskbarPlacement.cs', 'Preferences.cs', 'App.cs') | ForEach-Object { Join-Path $sourceFolder $_ }
+    'SampledText.cs', 'Toast.cs', 'ToastProfile.cs', 'TaskbarPlacement.cs', 'ToastPlacement.cs', 'Preferences.cs', 'App.cs') | ForEach-Object { Join-Path $sourceFolder $_ }
 $manifest = Join-Path $PSScriptRoot 'assets/app.manifest'
 $common = @('/nologo', '/optimize+', '/define:TRACE', '/platform:x64', '/codepage:65001', ('/win32manifest:' + $manifest))
 if ($TaskbarExperiment) { $common += '/define:TASKBAR_EXPERIMENT' }
@@ -77,6 +78,15 @@ if ($CheckQuality) {
     if ($LASTEXITCODE -ne 0) { throw 'Quality checks compile failed.' }
     & (Join-Path $output ($name + '.exe'))
     if ($LASTEXITCODE -ne 0) { throw 'Quality checks failed.' }
+}
+
+if ($CheckPosition) {
+    $name = 'CCCC.PositionChecks'
+    $arguments = $common + @('/target:exe', ('/main:' + $name), ('/out:' + (Join-Path $output ($name + '.exe')))) + $referenceArguments + $sources + @((Join-Path $PSScriptRoot 'tests/PositionChecks.cs'))
+    & $compiler @arguments
+    if ($LASTEXITCODE -ne 0) { throw 'Position checks compile failed.' }
+    & (Join-Path $output ($name + '.exe'))
+    if ($LASTEXITCODE -ne 0) { throw 'Position checks failed.' }
 }
 
 if ($CheckTaskbar) {

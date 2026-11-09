@@ -115,13 +115,13 @@ namespace CCCC
         private BackgroundFrame current;
         internal int BuildCount { get; private set; }
         internal int Count { get { return current == null ? 0 : 1; } }
-        internal BackgroundFrame Get(int dpi)
+        internal BackgroundFrame Get(int dpi, bool standaloneCompact = false)
         {
-            bool blend = ToastProfile.Compact && Themes.MaterialEnabled && Themes.Current.Transparent;
+            bool blend = ToastProfile.Compact && !standaloneCompact && Themes.MaterialEnabled && Themes.Current.Transparent;
             if (current == null || current.Dpi != dpi || current.Dark != Themes.Current.Dark || current.Acrylic != Themes.UseAcrylic ||
                 current.Compact != ToastProfile.Compact || current.TaskbarBlend != blend)
             {
-                BackgroundFrame replacement = CardBackgroundRenderer.Build(dpi);
+                BackgroundFrame replacement = CardBackgroundRenderer.Build(dpi, standaloneCompact);
                 current = replacement; BuildCount++;
             }
             return current;
@@ -134,7 +134,7 @@ namespace CCCC
         internal static int LogicalHeight { get { return ToastProfile.Compact ? 96 : 144; } }
         private const int Sampling = 2;
 
-        internal static BackgroundFrame Build(int dpi)
+        internal static BackgroundFrame Build(int dpi, bool standaloneCompact = false)
         {
             if (dpi <= 0 || dpi > 960) throw new ArgumentOutOfRangeException("dpi");
             Stopwatch watch = Stopwatch.StartNew();
@@ -144,7 +144,7 @@ namespace CCCC
             int margin = (int)Math.Round(32 * scale);
             Rect bounds = new Rect(margin + .5, margin + .5, width - 2 * margin - 1, height - 2 * margin - 1);
             Geometry outline = CardOutline.Create(bounds, scale);
-            bool taskbarBlend = ToastProfile.Compact && Themes.MaterialEnabled && Themes.Current.Transparent;
+            bool taskbarBlend = ToastProfile.Compact && !standaloneCompact && Themes.MaterialEnabled && Themes.Current.Transparent;
             double taskbarShadow = taskbarBlend ? Themes.Current.TaskbarShadow : 0;
 
             // The drawing coordinates here are FINAL physical pixels. Only this
