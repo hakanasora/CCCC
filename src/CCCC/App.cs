@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
@@ -88,6 +89,8 @@ namespace CCCC
         private IntPtr hook;
         private Forms.NotifyIcon tray;
         private Forms.MenuItem pauseItem, previewItem, materialItem, startupItem;
+        private Forms.MenuItem automaticPositionItem, customPositionItem, cancelPositionItem;
+        private readonly Dictionary<ToastPosition, Forms.MenuItem> positionItems = new Dictionary<ToastPosition, Forms.MenuItem>();
 #if TASKBAR_EXPERIMENT
         private Forms.MenuItem cardStyleItem, taskbarStyleItem, positionStatusItem;
 #endif
@@ -100,7 +103,8 @@ namespace CCCC
             this.app = app;
             ToastProfile.SetCompact(preferences.UseTaskbar);
             Themes.Refresh();
-            toast = new ToastWindow(preferences.UseMaterial);
+            toast = new ToastWindow(preferences.UseMaterial, preferences);
+            toast.PositionEditFinished += FinishPositionEdit;
         }
 
         internal void Start()
@@ -144,6 +148,7 @@ namespace CCCC
             previewItem = new Forms.MenuItem("显示内容预览") { Checked = preferences.ShowPreview };
             previewItem.Click += delegate
             {
+                toast.EndPositionEdit(false);
                 preferences.ShowPreview = !preferences.ShowPreview;
                 previewItem.Checked = preferences.ShowPreview;
                 SavePreferences();
@@ -154,6 +159,7 @@ namespace CCCC
             materialItem = new Forms.MenuItem("高级材质") { Checked = preferences.UseMaterial };
             materialItem.Click += delegate
             {
+                toast.EndPositionEdit(false);
                 preferences.UseMaterial = !preferences.UseMaterial;
                 materialItem.Checked = preferences.UseMaterial;
                 SavePreferences();
@@ -184,6 +190,7 @@ namespace CCCC
             menu.MenuItems.Add(heading); menu.MenuItems.Add(new Forms.MenuItem("-"));
             menu.MenuItems.Add(pauseItem); menu.MenuItems.Add(previewItem); menu.MenuItems.Add(startupItem);
             menu.MenuItems.Add(materialItem);
+            menu.MenuItems.Add(CreatePositionMenu());
 #if TASKBAR_EXPERIMENT
             Forms.MenuItem styleMenu = new Forms.MenuItem("提示样式");
             cardStyleItem = new Forms.MenuItem("普通卡片") { RadioCheck = true };
@@ -212,6 +219,91 @@ namespace CCCC
                 paused ? "取消勾选托盘菜单的“暂停提示”即可恢复" : "复制时自动提示 · 右键托盘图标可设置"); };
         }
 
+        private Forms.MenuItem CreatePositionMenu()
+        {
+            Forms.MenuItem menu = new Forms.MenuItem("弹窗位置");
+            automaticPositionItem = new Forms.MenuItem("任务栏自动定位") { RadioCheck = true };
+            automaticPositionItem.Click += delegate { SelectPosition(ToastPosition.Automatic); };
+            menu.MenuItems.Add(automaticPositionItem);
+            foreach (ToastPosition preset in ToastPlacement.Presets)
+            {
+                ToastPosition selected = preset;
+                Forms.MenuItem item = new Forms.MenuItem(ToastPlacement.Label(selected)) { RadioCheck = true };
+                item.Click += delegate { SelectPosition(selected); };
+                positionItems.Add(selected, item); menu.MenuItems.Add(item);
+            }
+            menu.MenuItems.Add(new Forms.MenuItem("-"));
+            customPositionItem = new Forms.MenuItem("自定义位置（拖动调整）…") { RadioCheck = true };
+            customPositionItem.Click += delegate { BeginPositionEdit(); };
+            cancelPositionItem = new Forms.MenuItem("取消位置调整");
+            cancelPositionItem.Click += delegate { toast.EndPositionEdit(false); };
+            menu.MenuItems.Add(customPositionItem); menu.MenuItems.Add(cancelPositionItem);
+            return menu;
+        }
+
+        private void RefreshPositionItems()
+        {
+            if (automaticPositionItem == null) return;
+            automaticPositionItem.Visible = ToastProfile.Compact;
+            automaticPositionItem.Checked = preferences.Position == ToastPosition.Automatic;
+            ToastPosition selected = preferences.Position == ToastPosition.Automatic && !ToastProfile.Compact ?
+                ToastPosition.BottomLeft : preferences.Position;
+            foreach (KeyValuePair<ToastPosition, Forms.MenuItem> item in positionItems)
+                item.Value.Checked = item.Key == selected;
+            customPositionItem.Checked = selected == ToastPosition.Custom;
+            customPositionItem.Text = toast.IsPositionEditing ? "正在调整：拖动后松开保存" : "自定义位置（拖动调整）…";
+            cancelPositionItem.Visible = toast.IsPositionEditing;
+        }
+
+        private void SelectPosition(ToastPosition position)
+        {
+            toast.EndPositionEdit(false);
+            preferences.Position = position; SavePreferences();
+            toast.HideAndClear(); RefreshLayoutItems();
+            Status("弹窗位置：" + ToastPlacement.Label(position), "复制提示将显示在这里");
+        }
+
+        private void ResetFeedback()
+        {
+            generation++; keys.Reset();
+            engine.Reset(Native.GetClipboardSequenceNumber());
+            deadlineTimer.Stop();
+        }
+
+        private void BeginPositionEdit()
+        {
+            if (disposed || toast.IsPositionEditing) return;
+            ResetFeedback();
+            toast.BeginPositionEdit(); RefreshPositionItems();
+        }
+
+        private void FinishPositionEdit(bool save)
+        {
+            if (disposed) return;
+            ResetFeedback();
+            if (save)
+            {
+                Native.Rect bounds;
+                Native.MonitorInfo info = new Native.MonitorInfo { Size = (uint)Marshal.SizeOf(typeof(Native.MonitorInfo)) };
+                if (!Native.GetWindowRect(toast.Handle, out bounds) ||
+                    !Native.GetMonitorInfo(Native.MonitorFromWindow(toast.Handle, 2), ref info))
+                {
+                    RefreshPositionItems();
+                    Status("未能设置弹窗位置", "请从托盘菜单重新调整"); return;
+                }
+                int dpi = Native.WindowDpi(toast.Handle);
+                double scale = dpi > 0 ? dpi / 96.0 : VisualTreeHelper.GetDpi(toast).DpiScaleX;
+                Point point = ToastPlacement.Normalize(ToastPlacement.WorkArea(info),
+                    new Rect(bounds.Left, bounds.Top, bounds.Right - bounds.Left, bounds.Bottom - bounds.Top), scale);
+                preferences.Position = ToastPosition.Custom;
+                preferences.CustomX = point.X; preferences.CustomY = point.Y;
+                preferences.CustomMonitor = Forms.Screen.FromHandle(toast.Handle).DeviceName;
+                preferences.HasCustomPosition = true; SavePreferences();
+            }
+            RefreshLayoutItems();
+            Status(save ? "弹窗位置已记住" : "已取消位置调整", save ? "下次启动仍在这里显示" : "继续使用原来的位置");
+        }
+
         private static bool StartupSettingError(Exception error)
         { return error is IOException || error is UnauthorizedAccessException || error is SecurityException || error is ArgumentException; }
 
@@ -228,10 +320,11 @@ namespace CCCC
             previewItem.Text = ToastProfile.Compact ? "内容预览（单行样式不显示）" : "显示内容预览";
             materialItem.Text = "高级材质";
             materialItem.Checked = preferences.UseMaterial;
+            RefreshPositionItems();
 #if TASKBAR_EXPERIMENT
             cardStyleItem.Checked = !ToastProfile.Compact;
             taskbarStyleItem.Checked = ToastProfile.Compact;
-            positionStatusItem.Visible = ToastProfile.Compact;
+            positionStatusItem.Visible = ToastProfile.Compact && preferences.Position == ToastPosition.Automatic;
             positionStatusItem.Text = "定位：" + TaskbarPlacement.LastDecision;
 #endif
         }
@@ -242,24 +335,23 @@ namespace CCCC
             if (ToastProfile.Compact == compact || disposed) return;
             // Close the old layout and its material before changing the shared
             // profile. Pending clipboard completions belong to the old epoch.
-            generation++;
-            keys.Reset();
-            engine.Reset(Native.GetClipboardSequenceNumber());
-            deadlineTimer.Stop();
-            toast = ReplaceLayout(toast, compact, preferences.UseMaterial);
+            toast.EndPositionEdit(false);
+            ResetFeedback();
+            toast = ReplaceLayout(toast, compact, preferences.UseMaterial, preferences);
+            toast.PositionEditFinished += FinishPositionEdit;
             preferences.UseTaskbar = compact; SavePreferences();
             if (compact) TaskbarPlacement.RequestRefresh();
             RefreshLayoutItems(); ApplyMenuTheme();
             Status(compact ? "已切换任务栏单行" : "已切换普通卡片", "复制反馈与动画保持不变");
         }
 
-        internal static ToastWindow ReplaceLayout(ToastWindow previous, bool compact, bool material)
+        internal static ToastWindow ReplaceLayout(ToastWindow previous, bool compact, bool material, Preferences placement = null)
         {
             previous.HideAndClear(); previous.Close();
             ToastProfile.SetCompact(compact);
             Themes.MaterialAvailable = false;
             Themes.Refresh();
-            return new ToastWindow(material);
+            return new ToastWindow(material, placement);
         }
 #endif
 
@@ -295,7 +387,7 @@ namespace CCCC
                     bool down = type == Native.WM_KEYDOWN || type == Native.WM_SYSKEYDOWN;
                     bool detected = keys.Feed((int)key.Key, down, Native.Down(0x11),
                         Native.Down(0x10) || Native.Down(0x12) || Native.Down(0x5B) || Native.Down(0x5C));
-                    if (detected && !paused)
+                    if (detected && !paused && !toast.IsPositionEditing)
                     {
                         long time = Native.Now;
                         IntPtr foreground = Native.GetForegroundWindow();
@@ -306,7 +398,7 @@ namespace CCCC
                         // access or visual work is performed in the low-level hook.
                         app.Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(delegate
                         {
-                            if (!disposed && !paused && expectedGeneration == generation)
+                            if (!disposed && !paused && !toast.IsPositionEditing && expectedGeneration == generation)
                             {
                                 engine.CopyPressed(time, foreground, process, sequence);
                                 toast.CopyPressed(engine.Count, foreground, preferences.ShowPreview, time);
@@ -325,7 +417,7 @@ namespace CCCC
             {
                 if (Themes.Refresh()) { toast.RefreshAppearance(); ApplyMenuTheme(); }
             }
-            if (message == Native.WM_CLIPBOARDUPDATE && !paused && !disposed && worker != null)
+            if (message == Native.WM_CLIPBOARDUPDATE && !paused && !disposed && !toast.IsPositionEditing && worker != null)
             {
                 worker.Enqueue(new ReadRequest { Sequence = Native.GetClipboardSequenceNumber(),
                     EventTime = Native.Now, Generation = generation, Foreground = Native.GetForegroundWindow() });
@@ -345,7 +437,7 @@ namespace CCCC
             {
                 app.Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(delegate
                 {
-                    if (disposed || paused || request.Generation != generation ||
+                    if (disposed || paused || toast.IsPositionEditing || request.Generation != generation ||
                         snapshot.Sequence != Native.GetClipboardSequenceNumber() ||
                         Native.Now - request.EventTime >= FeedbackEngine.ConfirmMilliseconds) return;
                     Show(engine.Observe(snapshot, request.EventTime, Native.Now, request.Foreground));
@@ -355,7 +447,7 @@ namespace CCCC
         }
 
         private void Show(Feedback feedback)
-        { if (feedback != null && !disposed) toast.Present(feedback, preferences.ShowPreview); }
+        { if (feedback != null && !disposed && !toast.IsPositionEditing) toast.Present(feedback, preferences.ShowPreview); }
 
         private void Status(string title, string detail)
         {
@@ -365,6 +457,7 @@ namespace CCCC
 
         private void SetPaused(bool value)
         {
+            toast.EndPositionEdit(false);
             paused = value;
             keys.Reset();
             generation++;

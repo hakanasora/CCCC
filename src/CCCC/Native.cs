@@ -52,6 +52,7 @@ namespace CCCC
         [DllImport("user32.dll")] internal static extern IntPtr GetWindow(IntPtr hwnd, uint command);
         [DllImport("user32.dll")] internal static extern bool IsWindow(IntPtr hwnd);
         [DllImport("user32.dll")] internal static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+        [DllImport("user32.dll")] internal static extern IntPtr MonitorFromRect(ref Rect bounds, uint flags);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] internal static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
         [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hwnd);
         internal static bool Down(int key) { return (GetAsyncKeyState(key) & 0x8000) != 0; }
