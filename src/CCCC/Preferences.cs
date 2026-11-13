@@ -9,6 +9,8 @@ namespace CCCC
         internal bool ShowPreview = true;
         internal bool UseMaterial = true;
         internal bool UseTaskbar = ToastProfile.IsExperiment;
+        // Opt-in override; the previous card/taskbar choice remains intact.
+        internal bool UsePrank;
         private readonly string path;
         internal string LastError { get; private set; }
         internal Preferences() : this(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CCCC", ToastProfile.SettingsFile)) { }
@@ -27,6 +29,8 @@ namespace CCCC
                         else if (line == "material=on") UseMaterial = true;
                         else if (line == "layout=card") UseTaskbar = false;
                         else if (line == "layout=taskbar") UseTaskbar = true;
+                        else if (line == "prank=on") UsePrank = true;
+                        else if (line == "prank=off") UsePrank = false;
                     }
             }
             catch (IOException error) { LastError = error.GetType().Name; }
@@ -44,7 +48,8 @@ namespace CCCC
                 temporary = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 File.WriteAllText(temporary, (ShowPreview ? "preview=on" : "preview=off") + Environment.NewLine +
                     (UseMaterial ? "material=on" : "material=off") + Environment.NewLine +
-                    (ToastProfile.IsExperiment ? (UseTaskbar ? "layout=taskbar" : "layout=card") + Environment.NewLine : ""));
+                    (ToastProfile.IsExperiment ? (UseTaskbar ? "layout=taskbar" : "layout=card") + Environment.NewLine : "") +
+                    (UsePrank ? "prank=on" : "prank=off") + Environment.NewLine);
                 if (File.Exists(target)) File.Replace(temporary, target, null);
                 else File.Move(temporary, target);
                 return true;

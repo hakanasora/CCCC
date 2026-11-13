@@ -58,6 +58,8 @@ namespace CCCC
                             host.Fault();
                         };
                         host.Start();
+                        app.SessionEnding += delegate { host.Dispose(); };
+                        app.Exit += delegate { host.Dispose(); };
                         app.Run();
                     }
                     return 0;
@@ -81,6 +83,7 @@ namespace CCCC
         private readonly CopyKeyDetector keys = new CopyKeyDetector();
         private readonly Preferences preferences = new Preferences();
         private ToastWindow toast;
+        private readonly PrankPaymentController payment = new PrankPaymentController();
         private readonly StartupRegistration startup = new StartupRegistration(new WindowsStartupStore(), Assembly.GetExecutingAssembly().Location);
         private HwndSource source;
         private ClipboardWorker worker;
@@ -88,8 +91,9 @@ namespace CCCC
         private IntPtr hook;
         private Forms.NotifyIcon tray;
         private Forms.MenuItem pauseItem, previewItem, materialItem, startupItem;
+        private Forms.MenuItem cardStyleItem, prankStyleItem;
 #if TASKBAR_EXPERIMENT
-        private Forms.MenuItem cardStyleItem, taskbarStyleItem, positionStatusItem;
+        private Forms.MenuItem taskbarStyleItem, positionStatusItem;
 #endif
         private System.Drawing.Icon trayIcon;
         private DispatcherTimer deadlineTimer;
@@ -180,19 +184,26 @@ namespace CCCC
                         Preview = "设置未能保存，请稍后重试", Foreground = Native.GetForegroundWindow() });
                 }
             };
-            exit.Click += delegate { app.Shutdown(); };
+            exit.Click += delegate { Dispose(); app.Shutdown(); };
             menu.MenuItems.Add(heading); menu.MenuItems.Add(new Forms.MenuItem("-"));
             menu.MenuItems.Add(pauseItem); menu.MenuItems.Add(previewItem); menu.MenuItems.Add(startupItem);
             menu.MenuItems.Add(materialItem);
-#if TASKBAR_EXPERIMENT
             Forms.MenuItem styleMenu = new Forms.MenuItem("提示样式");
             cardStyleItem = new Forms.MenuItem("普通卡片") { RadioCheck = true };
+            cardStyleItem.Click += delegate { SwitchStyle(false, false); };
+            styleMenu.MenuItems.Add(cardStyleItem);
+#if TASKBAR_EXPERIMENT
             taskbarStyleItem = new Forms.MenuItem("任务栏单行") { RadioCheck = true };
-            cardStyleItem.Click += delegate { SwitchLayout(false); };
-            taskbarStyleItem.Click += delegate { SwitchLayout(true); };
-            styleMenu.MenuItems.Add(cardStyleItem); styleMenu.MenuItems.Add(taskbarStyleItem);
+            taskbarStyleItem.Click += delegate { SwitchStyle(false, true); };
+            styleMenu.MenuItems.Add(taskbarStyleItem);
+#endif
+            prankStyleItem = new Forms.MenuItem("搞怪付款") { RadioCheck = true };
+            prankStyleItem.Click += delegate { SwitchStyle(!preferences.UsePrank, preferences.UseTaskbar); };
+            styleMenu.MenuItems.Add(prankStyleItem);
+            menu.MenuItems.Add(styleMenu);
+#if TASKBAR_EXPERIMENT
             positionStatusItem = new Forms.MenuItem() { Enabled = false };
-            menu.MenuItems.Add(styleMenu); menu.MenuItems.Add(positionStatusItem);
+            menu.MenuItems.Add(positionStatusItem);
 #endif
             menu.MenuItems.Add(new Forms.MenuItem("-")); menu.MenuItems.Add(exit);
             menu.Popup += delegate
@@ -223,36 +234,47 @@ namespace CCCC
 
         private void RefreshLayoutItems()
         {
-            previewItem.Enabled = !ToastProfile.Compact;
-            previewItem.Checked = !ToastProfile.Compact && preferences.ShowPreview;
-            previewItem.Text = ToastProfile.Compact ? "内容预览（单行样式不显示）" : "显示内容预览";
+            previewItem.Enabled = !ToastProfile.Compact && !preferences.UsePrank;
+            previewItem.Checked = previewItem.Enabled && preferences.ShowPreview;
+            previewItem.Text = preferences.UsePrank ? "内容预览（搞怪付款不显示）" : (ToastProfile.Compact ? "内容预览（单行样式不显示）" : "显示内容预览");
             materialItem.Text = "高级材质";
             materialItem.Checked = preferences.UseMaterial;
+            cardStyleItem.Checked = !preferences.UsePrank && !ToastProfile.Compact;
+            prankStyleItem.Checked = preferences.UsePrank;
 #if TASKBAR_EXPERIMENT
-            cardStyleItem.Checked = !ToastProfile.Compact;
-            taskbarStyleItem.Checked = ToastProfile.Compact;
-            positionStatusItem.Visible = ToastProfile.Compact;
+            taskbarStyleItem.Checked = !preferences.UsePrank && ToastProfile.Compact;
+            positionStatusItem.Visible = !preferences.UsePrank && ToastProfile.Compact;
             positionStatusItem.Text = "定位：" + TaskbarPlacement.LastDecision;
 #endif
         }
 
-#if TASKBAR_EXPERIMENT
-        private void SwitchLayout(bool compact)
+        private void SwitchStyle(bool prank, bool compact)
         {
-            if (ToastProfile.Compact == compact || disposed) return;
+            if (disposed || (preferences.UsePrank == prank && (prank || ToastProfile.Compact == (ToastProfile.IsExperiment && compact)))) return;
             // Close the old layout and its material before changing the shared
             // profile. Pending clipboard completions belong to the old epoch.
             generation++;
             keys.Reset();
             engine.Reset(Native.GetClipboardSequenceNumber());
             deadlineTimer.Stop();
+            payment.Clear();
+#if TASKBAR_EXPERIMENT
             toast = ReplaceLayout(toast, compact, preferences.UseMaterial);
-            preferences.UseTaskbar = compact; SavePreferences();
+#else
+            toast.HideAndClear();
+#endif
+            preferences.UsePrank = prank;
+            if (!prank) preferences.UseTaskbar = compact;
+            SavePreferences();
+#if TASKBAR_EXPERIMENT
             if (compact) TaskbarPlacement.RequestRefresh();
+#endif
             RefreshLayoutItems(); ApplyMenuTheme();
-            Status(compact ? "已切换任务栏单行" : "已切换普通卡片", "复制反馈与动画保持不变");
+            Status(prank ? "已切换搞怪付款" : (ToastProfile.Compact ? "已切换任务栏单行" : "已切换普通卡片"),
+                prank ? "复制照常完成 · 二维码前往项目仓库，不实际收费" : "复制反馈与动画保持不变");
         }
 
+#if TASKBAR_EXPERIMENT
         internal static ToastWindow ReplaceLayout(ToastWindow previous, bool compact, bool material)
         {
             previous.HideAndClear(); previous.Close();
@@ -309,7 +331,7 @@ namespace CCCC
                             if (!disposed && !paused && expectedGeneration == generation)
                             {
                                 engine.CopyPressed(time, foreground, process, sequence);
-                                toast.CopyPressed(engine.Count, foreground, preferences.ShowPreview, time);
+                                if (!preferences.UsePrank) toast.CopyPressed(engine.Count, foreground, preferences.ShowPreview, time);
                                 deadlineTimer.Start();
                             }
                         }));
@@ -355,7 +377,12 @@ namespace CCCC
         }
 
         private void Show(Feedback feedback)
-        { if (feedback != null && !disposed) toast.Present(feedback, preferences.ShowPreview); }
+        {
+            if (feedback == null || disposed) return;
+            if (preferences.UsePrank && !paused && payment.Handle(feedback))
+            { toast.HideAndClear(); return; }
+            toast.Present(feedback, preferences.ShowPreview);
+        }
 
         private void Status(string title, string detail)
         {
@@ -372,12 +399,14 @@ namespace CCCC
             pauseItem.Checked = paused;
             tray.Text = paused ? "CCCC · 已暂停" : "CCCC · 复制确认";
             toast.HideAndClear();
+            payment.Clear();
+            deadlineTimer.Stop();
             Status(paused ? "CCCC 已暂停" : "CCCC 已恢复", paused ? "需要时可从托盘恢复提示" : "现在复制试试吧");
         }
 
         internal void Fault()
         {
-            if (faulted) { app.Shutdown(1); return; }
+            if (faulted) { Dispose(); app.Shutdown(1); return; }
             faulted = true;
             if (pauseItem != null) SetPaused(true);
             if (tray != null) tray.ShowBalloonTip(5000, "CCCC 已暂停", "检测遇到异常，请退出后重新打开。", Forms.ToolTipIcon.Info);
@@ -388,6 +417,8 @@ namespace CCCC
         {
             if (disposed) return;
             disposed = true;
+            generation++;
+            payment.Dispose();
             if (deadlineTimer != null) deadlineTimer.Stop();
             if (hook != IntPtr.Zero) { Native.UnhookWindowsHookEx(hook); hook = IntPtr.Zero; }
             if (worker != null) worker.Dispose();

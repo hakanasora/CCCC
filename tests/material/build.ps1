@@ -18,7 +18,7 @@ $sources = Get-ChildItem -LiteralPath (Join-Path $Repository 'src/CCCC') -Filter
 $arguments = @('/nologo', '/optimize+', '/define:TRACE,PRESENTATION_CHECKS', '/platform:x64', '/codepage:65001',
     ('/win32manifest:' + (Join-Path $Repository 'assets/app.manifest')), '/target:exe', '/main:CCCC.MaterialChecks',
     ('/out:' + (Join-Path $output 'CCCC.MaterialChecks.exe')),
-    ('/resource:' + (Join-Path $output 'fonts.g.resources') + ',CCCC.MaterialChecks.g.resources')) + $references + $sources +
+    ('/resource:' + (Join-Path $Repository 'assets/prank/repository-qr.txt') + ',CCCC.Prank.RepositoryQr')) + $references + $sources +
     @((Join-Path $PSScriptRoot 'MaterialChecks.cs'))
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Material check compilation failed.' }

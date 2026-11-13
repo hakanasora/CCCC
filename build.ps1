@@ -1,19 +1,23 @@
 param(
-    [string]$FontDirectory = (Join-Path $PSScriptRoot 'assets/fonts'),
+    [string]$FontDirectory = '',
     [string]$OutputDirectory = (Join-Path $PSScriptRoot 'artifacts/build'),
     [switch]$CheckAnimation,
     [switch]$TaskbarExperiment = $true,
     [switch]$CheckTaskbar,
-    [switch]$CheckQuality
+    [switch]$CheckQuality,
+    [switch]$CheckPrank
 )
 $ErrorActionPreference = 'Stop'
 
-# Keep the two original faces and the original WPF resource names. Fonts are
-# local build inputs, never downloaded, installed or substituted by this script.
+# Installed Windows fonts are the default. An explicit local font directory
+# opts into the original embedded vivo faces; never copy system font binaries.
+$embedFonts = -not [string]::IsNullOrWhiteSpace($FontDirectory)
 $fontNames = @('vivoSans-Medium.ttf', 'vivoSans-Bold.ttf')
-foreach ($font in $fontNames) {
-    if (-not (Test-Path -LiteralPath (Join-Path $FontDirectory $font) -PathType Leaf)) {
-        throw "Missing local font: $font. See assets/fonts/README.md or pass -FontDirectory."
+if ($embedFonts) {
+    foreach ($font in $fontNames) {
+        if (-not (Test-Path -LiteralPath (Join-Path $FontDirectory $font) -PathType Leaf)) {
+            throw "Missing explicitly requested local font: $font. See assets/fonts/README.md."
+        }
     }
 }
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
@@ -46,33 +50,41 @@ foreach ($facade in @('System.Runtime', 'System.Runtime.InteropServices', 'Syste
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $output = (Resolve-Path -LiteralPath $OutputDirectory).Path
 $fontResources = Join-Path $output 'fonts.g.resources'
-$writer = [System.Resources.ResourceWriter]::new($fontResources)
-try {
-    foreach ($font in $fontNames) {
-        $stream = [System.IO.File]::OpenRead((Join-Path $FontDirectory $font))
-        $writer.AddResource(('fonts/' + $font.ToLowerInvariant()), $stream, $true)
+if ($embedFonts) {
+    $writer = [System.Resources.ResourceWriter]::new($fontResources)
+    try {
+        foreach ($font in $fontNames) {
+            $stream = [System.IO.File]::OpenRead((Join-Path $FontDirectory $font))
+            $writer.AddResource(('fonts/' + $font.ToLowerInvariant()), $stream, $true)
+        }
+        $writer.Generate()
     }
-    $writer.Generate()
+    finally { $writer.Dispose() }
 }
-finally { $writer.Dispose() }
+function Get-FontResources([string]$assemblyName) {
+    if ($embedFonts) { '/resource:' + $fontResources + ',' + $assemblyName + '.g.resources' }
+}
 
 $sourceFolder = Join-Path $PSScriptRoot 'src/CCCC'
 $sources = @('Core.cs', 'Native.cs', 'Rendering.cs', 'CompositionWindow.cs', 'CompositionBitmap.cs', 'Acrylic.cs', 'Theme.cs',
     'NativeMenuTheme.cs', 'Motion.cs', 'Startup.cs', 'EmbeddedFonts.cs', 'TextPixelWorkspace.cs',
-    'SampledText.cs', 'Toast.cs', 'ToastProfile.cs', 'TaskbarPlacement.cs', 'Preferences.cs', 'App.cs') | ForEach-Object { Join-Path $sourceFolder $_ }
+    'SampledText.cs', 'Toast.cs', 'ToastProfile.cs', 'TaskbarPlacement.cs', 'Preferences.cs',
+    'PrankPaymentController.cs', 'PrankPlacement.cs', 'PrankBrandMarks.cs', 'PrankQrCode.cs', 'PrankPaymentWindow.cs', 'App.cs') | ForEach-Object { Join-Path $sourceFolder $_ }
 $manifest = Join-Path $PSScriptRoot 'assets/app.manifest'
 $common = @('/nologo', '/optimize+', '/define:TRACE', '/platform:x64', '/codepage:65001', ('/win32manifest:' + $manifest))
 if ($TaskbarExperiment) { $common += '/define:TASKBAR_EXPERIMENT' }
+if ($embedFonts) { $common += '/define:EMBED_VIVO_FONTS' }
+$common += '/resource:' + (Join-Path $PSScriptRoot 'assets/prank/repository-qr.txt') + ',CCCC.Prank.RepositoryQr'
 $arguments = $common + @('/target:winexe', ('/out:' + (Join-Path $output 'CCCC.exe')),
-    ('/win32icon:' + (Join-Path $PSScriptRoot 'assets/CCCC.ico')),
-    ('/resource:' + $fontResources + ',CCCC.g.resources')) + $referenceArguments + $sources
+    ('/win32icon:' + (Join-Path $PSScriptRoot 'assets/CCCC.ico'))) + @(Get-FontResources 'CCCC') + $referenceArguments + $sources
 & $compiler @arguments
 if ($LASTEXITCODE -ne 0) { throw 'CCCC build failed.' }
 Write-Output ('Built ' + (Join-Path $output 'CCCC.exe'))
+Write-Output ('Font mode: ' + $(if ($embedFonts) { 'explicit embedded vivo Sans' } else { 'installed Microsoft YaHei UI / Microsoft YaHei / Segoe UI' }))
 
 if ($CheckQuality) {
     $name = 'CCCC.QualityChecks'
-    $arguments = $common + @('/target:exe', ('/main:' + $name), ('/out:' + (Join-Path $output ($name + '.exe')))) + $referenceArguments + $sources + @((Join-Path $PSScriptRoot 'tests/QualityChecks.cs'))
+    $arguments = $common + @('/target:exe', ('/main:' + $name), ('/out:' + (Join-Path $output ($name + '.exe')))) + @(Get-FontResources $name) + $referenceArguments + $sources + @((Join-Path $PSScriptRoot 'tests/QualityChecks.cs'))
     & $compiler @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Quality checks compile failed.' }
     & (Join-Path $output ($name + '.exe'))
@@ -82,8 +94,7 @@ if ($CheckQuality) {
 if ($CheckTaskbar) {
     $name = 'CCCC.TaskbarChecks'
     $arguments = $common + @('/target:exe', '/define:TESTS', ('/main:' + $name),
-        ('/out:' + (Join-Path $output ($name + '.exe'))),
-        ('/resource:' + $fontResources + ',' + $name + '.g.resources')) + $referenceArguments + $sources +
+        ('/out:' + (Join-Path $output ($name + '.exe')))) + @(Get-FontResources $name) + $referenceArguments + $sources +
         @((Join-Path $PSScriptRoot 'tests/TaskbarChecks.cs'))
     & $compiler @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Taskbar diagnostic build failed.' }
@@ -94,11 +105,14 @@ if ($CheckTaskbar) {
 if ($CheckAnimation) {
     $name = 'CCCC.AnimationChecks'
     $arguments = $common + @('/target:exe', '/define:PRESENTATION_CHECKS', ('/main:' + $name),
-        ('/out:' + (Join-Path $output ($name + '.exe'))),
-        ('/resource:' + $fontResources + ',' + $name + '.g.resources')) + $referenceArguments + $sources +
+        ('/out:' + (Join-Path $output ($name + '.exe')))) + @(Get-FontResources $name) + $referenceArguments + $sources +
         @((Join-Path $PSScriptRoot 'tests/AnimationChecks.cs'))
     & $compiler @arguments
     if ($LASTEXITCODE -ne 0) { throw 'Animation diagnostic build failed.' }
     & (Join-Path $output ($name + '.exe')) $output
     if ($LASTEXITCODE -ne 0) { throw 'Animation checks failed.' }
+}
+
+if ($CheckPrank) {
+    & (Join-Path $PSScriptRoot 'tests/build-prank.ps1') -OutputDirectory (Join-Path $output 'prank')
 }
