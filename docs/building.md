@@ -5,7 +5,7 @@
 - Windows x64、.NET Framework 4.8，使用 Windows PowerShell 5.1 或 PowerShell 7。
 - 当前脚本使用系统的 .NET Framework C# 编译器、WPF 组件、Windows WinMetadata 及 WinRT 引用；缺少组件时会明确报错。
 - 不需要 Visual Studio、NuGet、额外运行时或联网构建。源码使用 C# 5。
-- 自行获取 [vivo Sans 的两个原始字体文件](../assets/fonts/README.md)，放入 `assets/fonts/`。它们不会被 Git 跟踪。
+- 默认使用本机已安装的微软雅黑 UI／微软雅黑／Segoe UI，无需准备字体文件，不复制或嵌入系统字体。
 
 ## 构建
 
@@ -17,13 +17,13 @@
 
 生成 `artifacts/build/CCCC.exe`。当前 main 默认构建 **2.4.9-preview.1**，包含普通卡片与任务栏样式切换，界面与第四个任务栏原型一致。默认输出目录被 Git 忽略。稳定版源码仍可从 `v2.4.6` 标签获取。
 
-也可以指定本地字体目录和输出目录：
+如需保留原来的 vivo Sans 外观，可显式指定已有本地字体目录和输出目录：
 
 ```powershell
 .\build.ps1 -FontDirectory 'D:\MyFonts\vivoSans' -OutputDirectory '.\artifacts\custom'
 ```
 
-字体目录内必须有 `vivoSans-Medium.ttf` 和 `vivoSans-Bold.ttf`。脚本不会下载、改写、裁剪或安装字体，也不会静默切换成其他字体。
+仅在显式指定 `-FontDirectory` 时，目录内必须有 `vivoSans-Medium.ttf` 和 `vivoSans-Bold.ttf`。此时启用 `EMBED_VIVO_FONTS` 并按原资源名称嵌入；文件不全会报错。默认不指定参数即使用系统字体。脚本不会下载、改写、裁剪或安装字体。
 
 ## 可选轻量检查
 
@@ -63,4 +63,4 @@
 
 后续直接在此仓库修改，用小而清晰的 Git 提交记录改动，用版本标签标记里程碑；不再复制整套版本目录。每轮只运行与改动相关的轻量检查。
 
-GitHub Releases 提供稳定版与预览版。GitHub 自动生成的标签源码归档不包含字体，需要按上文自行准备。预览配置与稳定版配置保持独立；自启动仅在用户通过托盘菜单切换时写入登记，构建过程不修改登记。
+GitHub Releases 提供稳定版与预览版。此前标签的字体要求按其历史说明执行；本次默认系统字体构建不需要额外字体文件。预览配置与稳定版配置保持独立；自启动仅在用户通过托盘菜单切换时写入登记，构建过程不修改登记。
