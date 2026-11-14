@@ -88,6 +88,7 @@ namespace CCCC
         private IntPtr hook;
         private Forms.NotifyIcon tray;
         private Forms.MenuItem pauseItem, previewItem, materialItem, startupItem;
+        private Forms.MenuItem cornerMenu, cornerBottomLeftItem, cornerBottomRightItem, cornerTopLeftItem, cornerTopRightItem;
 #if TASKBAR_EXPERIMENT
         private Forms.MenuItem cardStyleItem, taskbarStyleItem, positionStatusItem;
 #endif
@@ -101,6 +102,7 @@ namespace CCCC
             ToastProfile.SetCompact(preferences.UseTaskbar);
             Themes.Refresh();
             toast = new ToastWindow(preferences.UseMaterial);
+            toast.SetCorner(preferences.Corner);
         }
 
         internal void Start()
@@ -181,9 +183,21 @@ namespace CCCC
                 }
             };
             exit.Click += delegate { app.Shutdown(); };
+            cornerMenu = new Forms.MenuItem("弹出位置");
+            cornerBottomLeftItem = new Forms.MenuItem("左下（默认）") { RadioCheck = true };
+            cornerBottomLeftItem.Click += delegate { SetCorner(ToastCorner.BottomLeft); };
+            cornerBottomRightItem = new Forms.MenuItem("右下") { RadioCheck = true };
+            cornerBottomRightItem.Click += delegate { SetCorner(ToastCorner.BottomRight); };
+            cornerTopLeftItem = new Forms.MenuItem("左上") { RadioCheck = true };
+            cornerTopLeftItem.Click += delegate { SetCorner(ToastCorner.TopLeft); };
+            cornerTopRightItem = new Forms.MenuItem("右上") { RadioCheck = true };
+            cornerTopRightItem.Click += delegate { SetCorner(ToastCorner.TopRight); };
+            cornerMenu.MenuItems.Add(cornerBottomLeftItem); cornerMenu.MenuItems.Add(cornerBottomRightItem);
+            cornerMenu.MenuItems.Add(cornerTopLeftItem); cornerMenu.MenuItems.Add(cornerTopRightItem);
             menu.MenuItems.Add(heading); menu.MenuItems.Add(new Forms.MenuItem("-"));
             menu.MenuItems.Add(pauseItem); menu.MenuItems.Add(previewItem); menu.MenuItems.Add(startupItem);
             menu.MenuItems.Add(materialItem);
+            menu.MenuItems.Add(cornerMenu);
 #if TASKBAR_EXPERIMENT
             Forms.MenuItem styleMenu = new Forms.MenuItem("提示样式");
             cardStyleItem = new Forms.MenuItem("普通卡片") { RadioCheck = true };
@@ -202,10 +216,12 @@ namespace CCCC
                 pauseItem.Checked = paused;
                 RefreshLayoutItems();
                 materialItem.Checked = preferences.UseMaterial;
+                RefreshCornerItems();
                 RefreshStartupItem();
             };
             RefreshStartupItem();
             RefreshLayoutItems();
+            RefreshCornerItems();
             tray.ContextMenu = menu;
             ApplyMenuTheme();
             tray.DoubleClick += delegate { Status(paused ? "CCCC 已暂停" : "CCCC 正在运行",
@@ -214,6 +230,39 @@ namespace CCCC
 
         private static bool StartupSettingError(Exception error)
         { return error is IOException || error is UnauthorizedAccessException || error is SecurityException || error is ArgumentException; }
+
+        private static string CornerLabel(ToastCorner corner)
+        {
+            switch (corner)
+            {
+                case ToastCorner.BottomRight: return "右下";
+                case ToastCorner.TopLeft: return "左上";
+                case ToastCorner.TopRight: return "右上";
+                default: return "左下";
+            }
+        }
+
+        private void SetCorner(ToastCorner corner)
+        {
+            if (disposed || preferences.Corner == corner) return;
+            preferences.Corner = corner;
+            SavePreferences();
+            toast.SetCorner(corner);
+            RefreshCornerItems();
+            Status("提示位置已调整为" + CornerLabel(corner), "复制时提示卡片显示在屏幕对应的角落");
+        }
+
+        private void RefreshCornerItems()
+        {
+            cornerBottomLeftItem.Checked = preferences.Corner == ToastCorner.BottomLeft;
+            cornerBottomRightItem.Checked = preferences.Corner == ToastCorner.BottomRight;
+            cornerTopLeftItem.Checked = preferences.Corner == ToastCorner.TopLeft;
+            cornerTopRightItem.Checked = preferences.Corner == ToastCorner.TopRight;
+            // The taskbar profile places its single-line hint next to the
+            // detected taskbar slot, so the manual corner choice does not apply.
+            cornerMenu.Enabled = !ToastProfile.Compact;
+            cornerMenu.Text = ToastProfile.Compact ? "弹出位置（任务栏样式自动定位）" : "弹出位置";
+        }
 
         private void SavePreferences()
         {
@@ -249,7 +298,7 @@ namespace CCCC
             toast = ReplaceLayout(toast, compact, preferences.UseMaterial);
             preferences.UseTaskbar = compact; SavePreferences();
             if (compact) TaskbarPlacement.RequestRefresh();
-            RefreshLayoutItems(); ApplyMenuTheme();
+            RefreshLayoutItems(); RefreshCornerItems(); ApplyMenuTheme();
             Status(compact ? "已切换任务栏单行" : "已切换普通卡片", "复制反馈与动画保持不变");
         }
 

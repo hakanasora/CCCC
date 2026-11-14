@@ -43,6 +43,7 @@ namespace CCCC
         private IntPtr hwnd, anchorWindow;
         private int revision;
         private bool positioning, refreshQueued, closed;
+        private ToastCorner corner = ToastCorner.BottomLeft;
 #if TASKBAR_EXPERIMENT
         private bool taskbarSpotPinned;
         private Point taskbarSpot;
@@ -280,6 +281,15 @@ namespace CCCC
             if (acrylic != null) { try { acrylic.Dispose(); } catch (Exception) { } acrylic = null; }
         }
 
+        internal void SetCorner(ToastCorner value)
+        {
+            if (closed || corner == value) return;
+            corner = value;
+            // The next Present always repositions; move immediately only when
+            // the card is already on screen so the change is visible at once.
+            if (IsVisible) Position(anchorWindow);
+        }
+
         internal void RefreshAppearance()
         {
             if (closed) return;
@@ -448,8 +458,14 @@ namespace CCCC
                 int dpi = EffectiveDpi();
                 double scale = dpi / 96.0;
                 int width = (int)Math.Round(OuterWidth * scale), height = (int)Math.Round(OuterHeight * scale);
-                int x = info.Work.Left + (int)Math.Round(-12 * scale);
-                int y = info.Work.Bottom - height + (int)Math.Round(12 * scale);
+                // The window is 32 logical pixels larger than the visible card
+                // on every side, so a 12 pixel inset leaves the card 20 pixels
+                // inside the work area, matching the original bottom-left spot.
+                int inset = (int)Math.Round(12 * scale);
+                bool right = corner == ToastCorner.BottomRight || corner == ToastCorner.TopRight;
+                bool top = corner == ToastCorner.TopLeft || corner == ToastCorner.TopRight;
+                int x = right ? info.Work.Right - width + inset : info.Work.Left - inset;
+                int y = top ? info.Work.Top - inset : info.Work.Bottom - height + inset;
 #if TASKBAR_EXPERIMENT
                 if (ToastProfile.Compact)
                 {

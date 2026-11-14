@@ -55,6 +55,12 @@ namespace CCCC
                 File.WriteAllText(path, "garbage\nmaterial=off\npreview=on\nlayout=card\n");
                 loaded = new Preferences(path);
                 Check(!loaded.UseMaterial && loaded.ShowPreview && !loaded.UseTaskbar, "unknown settings ignored");
+                p.Corner = ToastCorner.TopRight;
+                Check(p.Save() && new Preferences(path).Corner == ToastCorner.TopRight, "corner round trip");
+                File.WriteAllText(path, "garbage\nposition=bottomleft\n");
+                Check(new Preferences(path).Corner == ToastCorner.BottomLeft, "corner parse");
+                File.WriteAllText(path, "position=nonsense\n");
+                Check(new Preferences(path).Corner == ToastCorner.BottomLeft, "unknown corner falls back to default");
                 CopyKeyDetector keys = new CopyKeyDetector();
                 Check(keys.Feed(0x43, true, true, false), "Ctrl C detected");
                 Check(!keys.Feed(0x43, true, true, false), "held key suppressed");
