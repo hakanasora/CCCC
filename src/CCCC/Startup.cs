@@ -28,7 +28,11 @@ namespace CCCC
         public string Read()
         {
             using (RegistryKey key = Registry.CurrentUser.OpenSubKey(subKey, false))
-                return key == null ? null : key.GetValue(EntryName, null, RegistryValueOptions.DoNotExpandEnvironmentNames) as string;
+            {
+                if (key == null) return null;
+                object value = key.GetValue(EntryName, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
+                return value == null ? null : (value as string ?? String.Empty);
+            }
         }
         public void Write(string command)
         {
@@ -47,7 +51,7 @@ namespace CCCC
 
     internal sealed class StartupState
     {
-        internal bool Enabled, CurrentLocation;
+        internal bool Exists, Enabled, CurrentLocation;
     }
 
     internal sealed class StartupRegistration
@@ -66,7 +70,7 @@ namespace CCCC
         internal StartupState Read()
         {
             string value = store.Read();
-            return new StartupState { Enabled = !String.IsNullOrWhiteSpace(value),
+            return new StartupState { Exists = value != null, Enabled = !String.IsNullOrWhiteSpace(value),
                 CurrentLocation = String.Equals(value, command, StringComparison.OrdinalIgnoreCase) };
         }
         internal StartupState SetEnabled(bool enabled)

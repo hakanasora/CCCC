@@ -13,6 +13,7 @@ namespace CCCC
         internal const int WM_CLIPBOARDUPDATE = 0x031D;
         internal const int WM_KEYDOWN = 0x100, WM_KEYUP = 0x101;
         internal const int WM_SYSKEYDOWN = 0x104, WM_SYSKEYUP = 0x105;
+        internal const int DwmUseImmersiveDarkMode = 20;
         internal const uint CF_TEXT = 1, CF_BITMAP = 2, CF_DIB = 8, CF_UNICODETEXT = 13,
             CF_HDROP = 15, CF_DIBV5 = 17;
         internal delegate IntPtr HookCallback(int code, IntPtr message, IntPtr data);
@@ -24,6 +25,7 @@ namespace CCCC
         { internal uint Size; internal Rect Monitor, Work; internal uint Flags; }
 
         [DllImport("user32.dll", SetLastError = true)] internal static extern bool AddClipboardFormatListener(IntPtr hwnd);
+        [DllImport("dwmapi.dll")] internal static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
         [DllImport("user32.dll")] internal static extern bool RemoveClipboardFormatListener(IntPtr hwnd);
         [DllImport("user32.dll")] internal static extern uint GetClipboardSequenceNumber();
         [DllImport("user32.dll")] internal static extern IntPtr GetClipboardOwner();

@@ -20,9 +20,9 @@ using Forms = System.Windows.Forms;
 [assembly: AssemblyDescription("Windows 复制确认与连按反馈工具")]
 [assembly: AssemblyCompany("CCCC")]
 [assembly: AssemblyProduct("CCCC")]
-[assembly: AssemblyVersion("2.4.9.0")]
-[assembly: AssemblyFileVersion("2.4.9.0")]
-[assembly: AssemblyInformationalVersion("2.4.9-preview.1")]
+[assembly: AssemblyVersion("2.5.0.0")]
+[assembly: AssemblyFileVersion("2.5.0.0")]
+[assembly: AssemblyInformationalVersion("2.5.0")]
 [assembly: TargetFramework(".NETFramework,Version=v4.8", FrameworkDisplayName = ".NET Framework 4.8")]
 
 namespace CCCC
@@ -94,10 +94,20 @@ namespace CCCC
         private System.Drawing.Icon trayIcon;
         private DispatcherTimer deadlineTimer;
         private bool paused, disposed, faulted;
+        private readonly Preferences.LoadState legacySettings;
         private int generation;
+#if TASKBAR_EXPERIMENT
+        private Window layoutDialog;
+#endif
         internal CopyApplication(Application app)
         {
             this.app = app;
+            string settingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CCCC");
+            string otherSettings = ToastProfile.IsExperiment ? "settings.txt" : "settings-taskbar-experiment.txt";
+            string otherPath = Path.Combine(settingsDirectory, otherSettings);
+            Preferences legacy = new Preferences(otherPath);
+            legacySettings = legacy.State;
+            if (ToastProfile.IsExperiment) preferences.ImportLegacy(legacy);
             ToastProfile.SetCompact(preferences.UseTaskbar);
             Themes.Refresh();
             toast = new ToastWindow(preferences.UseMaterial);
@@ -130,6 +140,10 @@ namespace CCCC
                 else deadlineTimer.Stop();
             };
             deadlineTimer.Start();
+            bool initialized = preferences.InitializeFirstRun(legacySettings, startup);
+            RefreshStartupItem();
+            if (!initialized)
+                tray.ShowBalloonTip(5000, "部分设置未能初始化", "请在托盘菜单检查开机自启动设置。", Forms.ToolTipIcon.Warning);
             Status("CCCC 已启动", "现在复制试试吧 · 右键托盘图标可设置");
         }
 
@@ -167,6 +181,9 @@ namespace CCCC
             {
                 try
                 {
+                    if (preferences.State == Preferences.LoadState.Missing &&
+                        legacySettings == Preferences.LoadState.Missing && !preferences.Save())
+                        throw new IOException("Cannot save the initial settings.");
                     StartupState state = startup.SetEnabled(!startup.Read().Enabled);
                     SetStartupItem(state);
                     Status(state.Enabled ? "开机自启动已开启" : "开机自启动已关闭",
@@ -187,7 +204,7 @@ namespace CCCC
 #if TASKBAR_EXPERIMENT
             Forms.MenuItem styleMenu = new Forms.MenuItem("提示样式");
             cardStyleItem = new Forms.MenuItem("普通卡片") { RadioCheck = true };
-            taskbarStyleItem = new Forms.MenuItem("任务栏单行") { RadioCheck = true };
+            taskbarStyleItem = new Forms.MenuItem("任务栏单行（实验性）") { RadioCheck = true };
             cardStyleItem.Click += delegate { SwitchLayout(false); };
             taskbarStyleItem.Click += delegate { SwitchLayout(true); };
             styleMenu.MenuItems.Add(cardStyleItem); styleMenu.MenuItems.Add(taskbarStyleItem);
@@ -204,7 +221,6 @@ namespace CCCC
                 materialItem.Checked = preferences.UseMaterial;
                 RefreshStartupItem();
             };
-            RefreshStartupItem();
             RefreshLayoutItems();
             tray.ContextMenu = menu;
             ApplyMenuTheme();
@@ -239,7 +255,9 @@ namespace CCCC
 #if TASKBAR_EXPERIMENT
         private void SwitchLayout(bool compact)
         {
-            if (ToastProfile.Compact == compact || disposed) return;
+            if (ToastProfile.Compact == compact || disposed || layoutDialog != null) return;
+            if (compact && !ConfirmTaskbarLayout()) return;
+            if (disposed || app.Dispatcher.HasShutdownStarted) return;
             // Close the old layout and its material before changing the shared
             // profile. Pending clipboard completions belong to the old epoch.
             generation++;
@@ -251,6 +269,78 @@ namespace CCCC
             if (compact) TaskbarPlacement.RequestRefresh();
             RefreshLayoutItems(); ApplyMenuTheme();
             Status(compact ? "已切换任务栏单行" : "已切换普通卡片", "复制反馈与动画保持不变");
+        }
+
+        private bool ConfirmTaskbarLayout()
+        {
+            Window dialog = CreateTaskbarDialog();
+            layoutDialog = dialog;
+            try { return dialog.ShowDialog() == true; }
+            finally { layoutDialog = null; }
+        }
+
+        internal static Window CreateTaskbarDialog()
+        {
+            bool highContrast = SystemParameters.HighContrast;
+            bool dark = Themes.Read().Dark;
+            Brush background = highContrast ? SystemColors.WindowBrush : new SolidColorBrush(dark ? Color.FromRgb(43, 43, 43) : Colors.White);
+            Brush foreground = highContrast ? SystemColors.WindowTextBrush : new SolidColorBrush(dark ? Colors.White : Color.FromRgb(26, 26, 26));
+            Window dialog = new Window { Title = "CCCC", Width = 440, SizeToContent = SizeToContent.Height,
+                ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                Background = background, Foreground = foreground, FontSize = 14,
+                FontFamily = SystemFonts.MessageFontFamily, ShowInTaskbar = false };
+            if (!highContrast)
+                dialog.SourceInitialized += delegate
+                {
+                    int useDarkTitle = dark ? 1 : 0;
+                    Native.DwmSetWindowAttribute(new WindowInteropHelper(dialog).Handle, Native.DwmUseImmersiveDarkMode, ref useDarkTitle, sizeof(int));
+                };
+            DockPanel layout = new DockPanel();
+            StackPanel content = new StackPanel { Margin = new Thickness(24) };
+            content.Children.Add(new TextBlock { Text = "试用任务栏单行", FontSize = 20, FontWeight = FontWeights.SemiBold,
+                TextWrapping = TextWrapping.Wrap, Foreground = foreground });
+            content.Children.Add(new TextBlock { Text = "这项功能仍在试验中。任务栏空间不足或自动隐藏时，提示可能遮住任务栏上的图标，也可能显示在任务栏上方。",
+                Margin = new Thickness(0, 12, 0, 0), TextWrapping = TextWrapping.Wrap, LineHeight = 22, Foreground = foreground });
+            Grid buttons = new Grid { Margin = new Thickness(24, 16, 24, 16) };
+            buttons.ColumnDefinitions.Add(new ColumnDefinition());
+            buttons.ColumnDefinitions.Add(new ColumnDefinition());
+            Button confirm = new Button { Content = "切换样式", MinHeight = 34, Margin = new Thickness(0, 0, 4, 0) };
+            Button cancel = new Button { Content = "取消", MinHeight = 34, Margin = new Thickness(4, 0, 0, 0), IsCancel = true };
+            Border footer = new Border { Child = buttons };
+            if (!highContrast)
+            {
+                footer.Background = new SolidColorBrush(dark ? Color.FromRgb(32, 32, 32) : Color.FromRgb(246, 246, 246));
+                footer.BorderBrush = new SolidColorBrush(dark ? Color.FromRgb(29, 29, 29) : Color.FromRgb(226, 226, 226));
+                footer.BorderThickness = new Thickness(0, 1, 0, 0);
+                ControlTemplate template = (ControlTemplate)System.Windows.Markup.XamlReader.Parse(
+                    @"<ControlTemplate xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" TargetType=""Button"">
+                        <Border Name=""Surface"" CornerRadius=""4"" Background=""{TemplateBinding Background}""
+                                BorderBrush=""{TemplateBinding BorderBrush}"" BorderThickness=""{TemplateBinding BorderThickness}"">
+                            <ContentPresenter HorizontalAlignment=""Center"" VerticalAlignment=""Center"" RecognizesAccessKey=""True""/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property=""IsMouseOver"" Value=""True""><Setter TargetName=""Surface"" Property=""Opacity"" Value=""0.88""/></Trigger>
+                            <Trigger Property=""IsPressed"" Value=""True""><Setter TargetName=""Surface"" Property=""Opacity"" Value=""0.75""/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>");
+                confirm.Template = cancel.Template = template;
+                confirm.Background = new SolidColorBrush(dark ? Color.FromRgb(96, 205, 255) : Color.FromRgb(0, 95, 184));
+                confirm.Foreground = dark ? Brushes.Black : Brushes.White;
+                confirm.BorderThickness = new Thickness(0);
+                cancel.Background = new SolidColorBrush(dark ? Color.FromRgb(45, 45, 45) : Colors.White);
+                cancel.BorderBrush = new SolidColorBrush(dark ? Color.FromRgb(62, 62, 62) : Color.FromRgb(209, 209, 209));
+                cancel.Foreground = foreground;
+            }
+            confirm.Click += delegate { dialog.DialogResult = true; };
+            dialog.Loaded += delegate { cancel.Focus(); };
+            Grid.SetColumn(cancel, 1);
+            buttons.Children.Add(confirm);
+            buttons.Children.Add(cancel);
+            DockPanel.SetDock(footer, Dock.Bottom);
+            layout.Children.Add(footer);
+            layout.Children.Add(content);
+            dialog.Content = layout;
+            return dialog;
         }
 
         internal static ToastWindow ReplaceLayout(ToastWindow previous, bool compact, bool material)
@@ -388,6 +478,9 @@ namespace CCCC
         {
             if (disposed) return;
             disposed = true;
+#if TASKBAR_EXPERIMENT
+            if (layoutDialog != null) layoutDialog.Close();
+#endif
             if (deadlineTimer != null) deadlineTimer.Stop();
             if (hook != IntPtr.Zero) { Native.UnhookWindowsHookEx(hook); hook = IntPtr.Zero; }
             if (worker != null) worker.Dispose();

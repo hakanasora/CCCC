@@ -17,7 +17,6 @@ namespace CCCC
     {
         [StructLayout(LayoutKind.Sequential)] private struct QueueOptions { internal int Size, Thread, Apartment; }
         [DllImport("CoreMessaging.dll")] private static extern int CreateDispatcherQueueController(QueueOptions options, out IntPtr controller);
-        [DllImport("dwmapi.dll")] private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
         [ComImport, Guid("29E691FA-4567-4DCA-B319-D0F207EB6807"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
         private interface IDesktopInterop
         {
@@ -58,7 +57,7 @@ namespace CCCC
             {
                 created = new CompositionWindow();
                 int enabled = 1;
-                Marshal.ThrowExceptionForHR(DwmSetWindowAttribute(created.Handle, 17, ref enabled, 4));
+                Marshal.ThrowExceptionForHR(Native.DwmSetWindowAttribute(created.Handle, 17, ref enabled, 4));
                 compositor = new Compositor();
                 ((IDesktopInterop)(object)compositor).CreateDesktopWindowTarget(created.Handle, true, out target);
                 root = compositor.CreateContainerVisual();

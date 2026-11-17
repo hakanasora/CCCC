@@ -22,7 +22,8 @@ namespace CCCC
         private sealed class StartupStore : IStartupStore
         {
             internal string Value;
-            public string Read() { return Value; }
+            internal bool FailRead;
+            public string Read() { if (FailRead) throw new IOException("Injected"); return Value; }
             public void Write(string command) { Value = command; }
             public void Delete() { Value = null; }
         }
@@ -71,6 +72,41 @@ namespace CCCC
                 Check(startup.SetEnabled(true).CurrentLocation && store.Value.StartsWith("\"") && store.Value.EndsWith("\""), "startup path quoted");
                 Check(startup.SetEnabled(true).Enabled, "repeated startup enable");
                 Check(!startup.SetEnabled(false).Enabled && !startup.SetEnabled(false).Enabled, "repeated startup disable");
+                string freshPath = Path.Combine(directory, "fresh.txt");
+                string oldPath = Path.Combine(directory, "old.txt");
+                Preferences fresh = new Preferences(freshPath);
+                Check(fresh.State == Preferences.LoadState.Missing && !fresh.UseTaskbar, "fresh card default");
+                Check(fresh.InitializeFirstRun(new Preferences(oldPath).State, startup) && startup.Read().CurrentLocation, "fresh startup enabled");
+                Check(new Preferences(freshPath).State == Preferences.LoadState.Loaded, "first run persisted");
+                startup.SetEnabled(false);
+                Check(new Preferences(freshPath).InitializeFirstRun(new Preferences(oldPath).State, startup) && !startup.Read().Enabled, "disabled startup stays disabled");
+                File.Delete(freshPath);
+                File.WriteAllText(oldPath, "preview=off\nmaterial=off\n");
+                fresh = new Preferences(freshPath);
+                fresh.ImportLegacy(new Preferences(oldPath));
+                Check(!fresh.ShowPreview && !fresh.UseMaterial && !fresh.UseTaskbar, "legacy settings inherited");
+                Check(fresh.InitializeFirstRun(new Preferences(oldPath).State, startup) && !startup.Read().Enabled, "legacy settings preserve startup choice");
+                File.Delete(oldPath);
+                store.Value = "other-location";
+                Check(new Preferences(freshPath).InitializeFirstRun(new Preferences(oldPath).State, startup) && store.Value == "other-location", "existing startup location preserved");
+                startup.SetEnabled(false);
+                Check(new Preferences(freshPath).InitializeFirstRun(new Preferences(oldPath).State, startup) && !startup.Read().Enabled,
+                    "disabling a legacy registry-only startup stays disabled");
+                File.Delete(freshPath);
+                store.Value = "";
+                Check(new Preferences(freshPath).InitializeFirstRun(new Preferences(oldPath).State, startup) && store.Value == "", "empty startup entry preserved");
+                File.Delete(freshPath);
+                store.Value = null; store.FailRead = true;
+                Check(!new Preferences(freshPath).InitializeFirstRun(new Preferences(oldPath).State, startup) && !File.Exists(freshPath), "unavailable startup does not initialize");
+                store.FailRead = false;
+                File.WriteAllText(oldPath, "layout=taskbar\n");
+                using (FileStream held = new FileStream(oldPath, FileMode.Open, FileAccess.Read, FileShare.None))
+                    Check(!new Preferences(freshPath).InitializeFirstRun(new Preferences(oldPath).State, startup) && !startup.Read().Enabled, "unreadable legacy settings not first run");
+                File.Delete(oldPath);
+                string blockedPath = Path.Combine(directory, "settings.txt", "child.txt");
+                Check(!new Preferences(blockedPath).InitializeFirstRun(new Preferences(oldPath).State, startup) && !startup.Read().Enabled, "failed persistence leaves startup untouched");
+                File.WriteAllText(freshPath, "layout=taskbar\n");
+                Check(new Preferences(freshPath).UseTaskbar && new Preferences(freshPath).InitializeFirstRun(new Preferences(oldPath).State, startup) && !startup.Read().Enabled, "saved taskbar layout preserved");
                 FeedbackEngine engine = new FeedbackEngine();
                 engine.Reset(1); engine.CopyPressed(0, new IntPtr(1), 9, 1);
                 Check(engine.Observe(null, 1, 1, IntPtr.Zero) == null, "null observation");

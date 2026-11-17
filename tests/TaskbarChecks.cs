@@ -20,7 +20,8 @@ namespace CCCC
         {
             try
             {
-                Check(ToastProfile.Compact && ToastProfile.SettingsFile != "settings.txt", "isolated profile");
+                Check(!ToastProfile.Compact && ToastProfile.SettingsFile != "settings.txt", "card default and isolated profile");
+                ToastProfile.SetCompact(true);
                 Point spot;
                 Rect bar = new Rect(0, 950, 1920, 50);
                 Check(TaskbarPlacement.TryFindSlot(bar, new[] { new Rect(700, 950, 500, 50) }, 1, out spot) && spot.X < 300, "centered taskbar");
